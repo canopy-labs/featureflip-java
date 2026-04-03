@@ -46,7 +46,7 @@ centralPortal {
     pom {
         name.set("Featureflip Java SDK")
         description.set("Java SDK for Featureflip - a feature flag SaaS platform")
-        url.set("https://featureflip.io")
+        url.set("https://github.com/canopy-labs/featureflip-java")
 
         licenses {
             license {
@@ -64,7 +64,7 @@ centralPortal {
         }
 
         scm {
-            url.set("https://featureflip.io")
+            url.set("https://github.com/canopy-labs/featureflip-java")
         }
     }
 }
