@@ -7,7 +7,7 @@ Java SDK for [Featureflip](https://featureflip.io) - evaluate feature flags loca
 ### Gradle
 
 ```groovy
-implementation 'io.featureflip:featureflip-java:1.0.0'
+implementation 'io.featureflip:featureflip-java:2.0.0'
 ```
 
 ### Maven
@@ -16,17 +16,17 @@ implementation 'io.featureflip:featureflip-java:1.0.0'
 <dependency>
     <groupId>io.featureflip</groupId>
     <artifactId>featureflip-java</artifactId>
-    <version>1.0.0</version>
+    <version>2.0.0</version>
 </dependency>
 ```
 
 ## Quick Start
 
 ```java
-import dev.featureflip.sdk.FeatureflipClient;
-import dev.featureflip.sdk.EvaluationContext;
+import io.featureflip.client.FeatureflipClient;
+import io.featureflip.client.EvaluationContext;
 
-FeatureflipClient client = FeatureflipClient.builder("your-sdk-key").build();
+FeatureflipClient client = FeatureflipClient.get("your-sdk-key");
 client.waitForInitialization();
 
 boolean enabled = client.boolVariation("my-feature",
@@ -39,19 +39,26 @@ if (enabled) {
 client.close();
 ```
 
+> **Lifetime:** The client is designed to be used as a singleton. Calling `FeatureflipClient.get()` (or `builder().build()`) multiple times with the same SDK key returns handles sharing one underlying client — you cannot accidentally open duplicate streaming connections. For dependency injection, register it as a singleton bean.
+
 ## Configuration
 
+Pass a `FeatureFlagConfig` to `get()` when you need non-default options:
+
 ```java
-FeatureflipClient client = FeatureflipClient.builder("your-sdk-key")
-    .baseUrl("https://eval.featureflip.io")          // Evaluation API URL (default)
-    .streaming(true)                                   // SSE for real-time updates (default)
-    .pollInterval(Duration.ofSeconds(30))              // Polling interval if streaming=false
-    .flushInterval(Duration.ofSeconds(30))             // Event flush interval
-    .flushBatchSize(100)                               // Events per batch
-    .initTimeout(Duration.ofSeconds(10))               // Max wait for initialization
-    .connectTimeout(Duration.ofSeconds(5))             // HTTP connection timeout
-    .readTimeout(Duration.ofSeconds(10))               // HTTP read timeout
-    .build();
+import io.featureflip.client.FeatureFlagConfig;
+
+FeatureflipClient client = FeatureflipClient.get("your-sdk-key",
+    FeatureFlagConfig.builder()
+        .baseUrl("https://eval.featureflip.io")          // Evaluation API URL (default)
+        .streaming(true)                                   // SSE for real-time updates (default)
+        .pollInterval(Duration.ofSeconds(30))              // Polling interval if streaming=false
+        .flushInterval(Duration.ofSeconds(30))             // Event flush interval
+        .flushBatchSize(100)                               // Events per batch
+        .initTimeout(Duration.ofSeconds(10))               // Max wait for initialization
+        .connectTimeout(Duration.ofSeconds(5))             // HTTP connection timeout
+        .readTimeout(Duration.ofSeconds(10))               // HTTP read timeout
+        .build());
 ```
 
 The SDK key can also be set via the `FEATUREFLIP_SDK_KEY` environment variable.
@@ -107,7 +114,7 @@ client.flush();
 The client implements `AutoCloseable` for try-with-resources:
 
 ```java
-try (var client = FeatureflipClient.builder("your-sdk-key").build()) {
+try (var client = FeatureflipClient.get("your-sdk-key")) {
     client.waitForInitialization();
     boolean enabled = client.boolVariation("feature", context, false);
 }
