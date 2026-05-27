@@ -14,6 +14,7 @@ public final class FlagConfiguration {
     private List<TargetingRule> rules = new ArrayList<>();
     private ServeConfig fallthrough;
     private String offVariation = "";
+    private List<Prerequisite> prerequisites = new ArrayList<>();
 
     public String getKey() { return key; }
     public void setKey(String key) { this.key = key; }
@@ -31,6 +32,10 @@ public final class FlagConfiguration {
     public void setFallthrough(ServeConfig fallthrough) { this.fallthrough = fallthrough; }
     public String getOffVariation() { return offVariation; }
     public void setOffVariation(String offVariation) { this.offVariation = offVariation; }
+    public List<Prerequisite> getPrerequisites() { return prerequisites; }
+    public void setPrerequisites(List<Prerequisite> prerequisites) {
+        this.prerequisites = prerequisites != null ? prerequisites : new ArrayList<>();
+    }
 
     /** Find a variation by key, or null if not found. */
     public Variation getVariationByKey(String variationKey) {

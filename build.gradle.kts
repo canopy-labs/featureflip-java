@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.featureflip"
-version = "2.0.0"
+version = "2.1.0"
 
 java {
     toolchain {
@@ -21,7 +21,7 @@ repositories {
 }
 
 dependencies {
-    api("org.slf4j:slf4j-api:2.0.17")
+    api("org.slf4j:slf4j-api:2.0.18")
 
     implementation("com.squareup.okhttp3:okhttp:5.3.2")
     implementation("com.squareup.okhttp3:okhttp-sse:5.3.2")
@@ -32,7 +32,11 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("com.squareup.okhttp3:mockwebserver3-junit5:5.3.2")
     testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("org.slf4j:slf4j-simple:2.0.17")
+    testImplementation("org.slf4j:slf4j-simple:2.0.18")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.compilerArgs.addAll(listOf("-Xlint:all", "-Werror"))
 }
 
 tasks.test {

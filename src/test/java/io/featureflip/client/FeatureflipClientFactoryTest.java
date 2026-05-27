@@ -24,6 +24,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * initialization failures and continues without flags, so the resulting handle is
  * usable immediately.
  */
+@SuppressWarnings("try") // try-with-resources usages here intentionally close handles without referencing them
 class FeatureflipClientFactoryTest {
 
     @BeforeEach

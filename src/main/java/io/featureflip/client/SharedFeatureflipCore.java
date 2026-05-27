@@ -305,16 +305,18 @@ final class SharedFeatureflipCore {
                     "Flag '" + key + "' not found");
             }
 
-            FlagEvaluator.Result result = evaluator.evaluate(flag, context);
+            FlagEvaluator.Result result = evaluator.evaluate(flag, context, store.getAllFlags());
             Variation variation = flag.getVariationByKey(result.getVariationKey());
 
             if (variation == null) {
                 return new EvaluationDetail<>(defaultValue, result.getReason(), result.getRuleId(),
-                    "Variation '" + result.getVariationKey() + "' not found");
+                    "Variation '" + result.getVariationKey() + "' not found",
+                    result.getVariationKey(), result.getPrerequisiteKey());
             }
 
             T value = deserializeValue(variation.getValue(), defaultValue, type);
-            return new EvaluationDetail<>(value, result.getReason(), result.getRuleId(), null, result.getVariationKey());
+            return new EvaluationDetail<>(value, result.getReason(), result.getRuleId(), null,
+                result.getVariationKey(), result.getPrerequisiteKey());
         } catch (Exception e) {
             log.warn("Evaluation error for flag '{}': {}", key, e.getMessage());
             return new EvaluationDetail<>(defaultValue, EvaluationReason.ERROR, null, e.getMessage());

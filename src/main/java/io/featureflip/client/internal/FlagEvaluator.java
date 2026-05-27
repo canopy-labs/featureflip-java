@@ -8,12 +8,20 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public final class FlagEvaluator {
+
+    /**
+     * Safety net against pathological prerequisite chains. Cycles are blocked at
+     * write time on the server, so reaching this limit indicates a corrupt config.
+     */
+    static final int MAX_PREREQUISITE_DEPTH = 10;
 
     private final FlagStore store;
 
@@ -21,9 +29,85 @@ public final class FlagEvaluator {
         this.store = store;
     }
 
+    /**
+     * Evaluates a flag with no prerequisite resolution. Equivalent to passing an
+     * empty {@code allFlags} map — prerequisites declared on the flag will be
+     * treated as missing and resolve to {@link EvaluationReason#PREREQUISITE_FAILED}.
+     */
     public Result evaluate(FlagConfiguration flag, EvaluationContext context) {
+        return evaluate(flag, context, null);
+    }
+
+    /**
+     * Evaluates a flag, resolving any prerequisite flags using {@code allFlags}.
+     *
+     * @param allFlags map of all flags in the environment, keyed by flag key.
+     *                 Required when the flag has prerequisites; pass {@code null}
+     *                 if the flag is known to have no prerequisites.
+     */
+    public Result evaluate(FlagConfiguration flag, EvaluationContext context,
+                           Map<String, FlagConfiguration> allFlags) {
+        Map<String, Result> memo = new HashMap<>();
+        return evaluateInternal(flag, context, allFlags, 0, memo);
+    }
+
+    /**
+     * Evaluates a flag, sharing a memoisation map with other concurrent evaluations
+     * (e.g. a batch "evaluate all" pass). Use this when evaluating multiple flags
+     * in one sweep so that shared prerequisite flags are only evaluated once.
+     */
+    public Result evaluateWithSharedMemo(FlagConfiguration flag, EvaluationContext context,
+                                         Map<String, FlagConfiguration> allFlags,
+                                         Map<String, Result> memo) {
+        return evaluateInternal(flag, context, allFlags, 0, memo);
+    }
+
+    private Result evaluateInternal(FlagConfiguration flag, EvaluationContext context,
+                                    Map<String, FlagConfiguration> allFlags,
+                                    int depth, Map<String, Result> memo) {
+        if (depth > MAX_PREREQUISITE_DEPTH) {
+            return new Result(flag.getOffVariation(), EvaluationReason.ERROR, null);
+        }
+
         if (!flag.isEnabled()) {
             return new Result(flag.getOffVariation(), EvaluationReason.FLAG_DISABLED, null);
+        }
+
+        // Resolve prerequisites in order. A failing prerequisite short-circuits to the
+        // off variation with reason PREREQUISITE_FAILED; error reasons propagate upward.
+        for (Prerequisite prereq : flag.getPrerequisites()) {
+            Result prereqResult = memo.get(prereq.getPrerequisiteFlagKey());
+
+            if (prereqResult == null) {
+                FlagConfiguration prereqFlag = allFlags != null
+                    ? allFlags.get(prereq.getPrerequisiteFlagKey())
+                    : null;
+
+                if (prereqFlag == null) {
+                    Result miss = new Result(flag.getOffVariation(),
+                        EvaluationReason.PREREQUISITE_FAILED, null,
+                        prereq.getPrerequisiteFlagKey());
+                    memo.put(flag.getKey(), miss);
+                    return miss;
+                }
+
+                prereqResult = evaluateInternal(prereqFlag, context, allFlags, depth + 1, memo);
+                memo.put(prereq.getPrerequisiteFlagKey(), prereqResult);
+            }
+
+            if (prereqResult.getReason() == EvaluationReason.ERROR) {
+                Result err = new Result(flag.getOffVariation(), EvaluationReason.ERROR, null);
+                memo.put(flag.getKey(), err);
+                return err;
+            }
+
+            if (!prereq.getExpectedVariationKey().equals(prereqResult.getVariationKey())) {
+                Result failed = new Result(flag.getOffVariation(),
+                    EvaluationReason.PREREQUISITE_FAILED, null,
+                    prereq.getPrerequisiteFlagKey());
+                memo.put(flag.getKey(), failed);
+                return failed;
+            }
         }
 
         List<TargetingRule> orderedRules = flag.getRules().stream()
@@ -33,16 +117,22 @@ public final class FlagEvaluator {
         for (TargetingRule rule : orderedRules) {
             if (evaluateRule(rule, context)) {
                 String variationKey = resolveServeConfig(rule.getServe(), context, flag.getKey());
-                return new Result(variationKey, EvaluationReason.RULE_MATCH, rule.getId());
+                Result ruleResult = new Result(variationKey, EvaluationReason.RULE_MATCH, rule.getId());
+                memo.put(flag.getKey(), ruleResult);
+                return ruleResult;
             }
         }
 
         if (flag.getFallthrough() != null) {
             String variationKey = resolveServeConfig(flag.getFallthrough(), context, flag.getKey());
-            return new Result(variationKey, EvaluationReason.FALLTHROUGH, null);
+            Result fallResult = new Result(variationKey, EvaluationReason.FALLTHROUGH, null);
+            memo.put(flag.getKey(), fallResult);
+            return fallResult;
         }
 
-        return new Result(flag.getOffVariation(), EvaluationReason.FALLTHROUGH, null);
+        Result offResult = new Result(flag.getOffVariation(), EvaluationReason.FALLTHROUGH, null);
+        memo.put(flag.getKey(), offResult);
+        return offResult;
     }
 
     boolean evaluateRule(TargetingRule rule, EvaluationContext context) {
@@ -212,15 +302,22 @@ public final class FlagEvaluator {
         private final String variationKey;
         private final EvaluationReason reason;
         private final String ruleId;
+        private final String prerequisiteKey;
 
         public Result(String variationKey, EvaluationReason reason, String ruleId) {
+            this(variationKey, reason, ruleId, null);
+        }
+
+        public Result(String variationKey, EvaluationReason reason, String ruleId, String prerequisiteKey) {
             this.variationKey = variationKey;
             this.reason = reason;
             this.ruleId = ruleId;
+            this.prerequisiteKey = prerequisiteKey;
         }
 
         public String getVariationKey() { return variationKey; }
         public EvaluationReason getReason() { return reason; }
         public String getRuleId() { return ruleId; }
+        public String getPrerequisiteKey() { return prerequisiteKey; }
     }
 }

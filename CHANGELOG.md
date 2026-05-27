@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Prerequisite flag support.** The local evaluator now resolves prerequisite flags declared on a flag's `prerequisites` field, mirroring the JS core and .NET server-side evaluators. A failing prerequisite (mismatch, missing flag, or disabled prereq serving the off variation) short-circuits to the flag's off variation with `EvaluationReason.PREREQUISITE_FAILED`, and `EvaluationDetail.getPrerequisiteKey()` returns the failing prerequisite's key. Chained prerequisites are resolved recursively with per-call memoization and a depth cap of 10; exceeding the cap returns `EvaluationReason.ERROR`. `FlagEvaluator.evaluateWithSharedMemo(...)` lets batch callers share a memo so a common prerequisite is evaluated once across multiple top-level calls. The new constructor `EvaluationDetail(value, reason, ruleId, errorMessage, variationKey, prerequisiteKey)` is additive — existing constructors remain source- and binary-compatible.
+
 ## 2.0.0 — 2026-04-07
 
 ### BREAKING
