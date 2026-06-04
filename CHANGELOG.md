@@ -1,6 +1,12 @@
 # Changelog
 
-## Unreleased
+## 2.1.1 — 2026-06-03
+
+### Changed
+
+- Bumped `com.fasterxml.jackson.core:jackson-databind` and `com.fasterxml.jackson.datatype:jackson-datatype-jsr310` from 2.21.3 to 2.22.0.
+
+## 2.1.0 — 2026-05-27
 
 ### Added
 
