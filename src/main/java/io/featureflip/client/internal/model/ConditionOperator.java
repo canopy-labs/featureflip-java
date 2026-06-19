@@ -17,5 +17,10 @@ public enum ConditionOperator {
     @JsonProperty("GreaterThanOrEqual") GREATER_THAN_OR_EQUAL,
     @JsonProperty("LessThanOrEqual") LESS_THAN_OR_EQUAL,
     @JsonProperty("Before") BEFORE,
-    @JsonProperty("After") AFTER
+    @JsonProperty("After") AFTER,
+    @JsonProperty("SemverEquals") SEMVER_EQUALS,
+    @JsonProperty("SemverGreaterThan") SEMVER_GREATER_THAN,
+    @JsonProperty("SemverGreaterThanOrEqual") SEMVER_GREATER_THAN_OR_EQUAL,
+    @JsonProperty("SemverLessThan") SEMVER_LESS_THAN,
+    @JsonProperty("SemverLessThanOrEqual") SEMVER_LESS_THAN_OR_EQUAL
 }

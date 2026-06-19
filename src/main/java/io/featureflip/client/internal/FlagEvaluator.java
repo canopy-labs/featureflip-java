@@ -7,11 +7,20 @@ import io.featureflip.client.internal.model.*;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.DateTimeException;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.function.BiPredicate;
+import java.util.function.IntPredicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -116,7 +125,7 @@ public final class FlagEvaluator {
 
         for (TargetingRule rule : orderedRules) {
             if (evaluateRule(rule, context)) {
-                String variationKey = resolveServeConfig(rule.getServe(), context, flag.getKey());
+                String variationKey = resolveServeConfig(rule.getServe(), context);
                 Result ruleResult = new Result(variationKey, EvaluationReason.RULE_MATCH, rule.getId());
                 memo.put(flag.getKey(), ruleResult);
                 return ruleResult;
@@ -124,7 +133,7 @@ public final class FlagEvaluator {
         }
 
         if (flag.getFallthrough() != null) {
-            String variationKey = resolveServeConfig(flag.getFallthrough(), context, flag.getKey());
+            String variationKey = resolveServeConfig(flag.getFallthrough(), context);
             Result fallResult = new Result(variationKey, EvaluationReason.FALLTHROUGH, null);
             memo.put(flag.getKey(), fallResult);
             return fallResult;
@@ -136,8 +145,14 @@ public final class FlagEvaluator {
     }
 
     boolean evaluateRule(TargetingRule rule, EvaluationContext context) {
-        // If rule references a segment, evaluate the segment's conditions instead
-        if (rule.getSegmentKey() != null && !rule.getSegmentKey().isEmpty() && store != null) {
+        // If rule references a segment, evaluate the segment's conditions instead.
+        // A non-empty segmentKey must resolve its segment to match: if the segment
+        // source isn't wired (store is null), or the segment can't be found, fail
+        // closed (no match) — mirroring the engine + C# SDK — rather than falling
+        // through to the rule's condition groups (which match unconditionally when
+        // empty). See #1459.
+        if (rule.getSegmentKey() != null && !rule.getSegmentKey().isEmpty()) {
+            if (store == null) return false;
             Segment segment = store.getSegment(rule.getSegmentKey());
             if (segment == null) return false;
             return evaluateConditions(segment.getConditions(), segment.getConditionLogic(), context);
@@ -177,9 +192,34 @@ public final class FlagEvaluator {
             return condition.isNegate();
         }
 
+        // Type-aware numeric coercion for equality/membership operators (#1458).
+        // When the attribute is a native Number — Java's Boolean does NOT implement
+        // Number, so booleans are naturally excluded — compare the string condition
+        // literals numerically rather than via stringification, so 1.0-vs-1 rendering
+        // differences cannot diverge from the engine. Mirrors the engine's
+        // TryGetNumericValue + double.TryParse equality branch. Only EQUALS/NOT_EQUALS/
+        // IN/NOT_IN are coerced; CONTAINS/STARTS_WITH/ENDS_WITH stay on the string path.
+        if (attrValue instanceof Number && isEqualityOperator(condition.getOperator())) {
+            double a = ((Number) attrValue).doubleValue();
+            boolean anyEqual = condition.getValues().stream().anyMatch(v -> {
+                Double n = parseDouble(v);
+                return n != null && n == a;
+            });
+            ConditionOperator op = condition.getOperator();
+            boolean numericResult = (op == ConditionOperator.EQUALS || op == ConditionOperator.IN)
+                ? anyEqual
+                : !anyEqual; // NOT_EQUALS / NOT_IN
+            return condition.isNegate() ? !numericResult : numericResult;
+        }
+
         String stringValue = attrValue.toString();
         boolean result = evaluateOperator(condition.getOperator(), stringValue, condition.getValues());
         return condition.isNegate() ? !result : result;
+    }
+
+    private static boolean isEqualityOperator(ConditionOperator op) {
+        return op == ConditionOperator.EQUALS || op == ConditionOperator.NOT_EQUALS
+            || op == ConditionOperator.IN || op == ConditionOperator.NOT_IN;
     }
 
     boolean evaluateOperator(ConditionOperator op, String value, List<String> targets) {
@@ -204,51 +244,154 @@ public final class FlagEvaluator {
             case MATCHES_REGEX:
                 return targets.stream().anyMatch(t -> matchesRegex(value, t));
             case GREATER_THAN:
-                return targets.stream().anyMatch(t -> compareNumeric(value, t) > 0);
+                return compareNumeric(value, targets, c -> c > 0);
             case LESS_THAN:
-                return targets.stream().anyMatch(t -> compareNumeric(value, t) < 0);
+                return compareNumeric(value, targets, c -> c < 0);
             case GREATER_THAN_OR_EQUAL:
-                return targets.stream().anyMatch(t -> compareNumeric(value, t) >= 0);
+                return compareNumeric(value, targets, c -> c >= 0);
             case LESS_THAN_OR_EQUAL:
-                return targets.stream().anyMatch(t -> compareNumeric(value, t) <= 0);
+                return compareNumeric(value, targets, c -> c <= 0);
             case BEFORE:
-                return targets.stream().anyMatch(t -> compareDateTime(value, t) < 0);
+                return compareDateTime(value, targets, (a, b) -> a.isBefore(b));
             case AFTER:
-                return targets.stream().anyMatch(t -> compareDateTime(value, t) > 0);
+                return compareDateTime(value, targets, (a, b) -> a.isAfter(b));
+            case SEMVER_EQUALS:
+                return compareSemver(value, targets, c -> c == 0);
+            case SEMVER_GREATER_THAN:
+                return compareSemver(value, targets, c -> c > 0);
+            case SEMVER_GREATER_THAN_OR_EQUAL:
+                return compareSemver(value, targets, c -> c >= 0);
+            case SEMVER_LESS_THAN:
+                return compareSemver(value, targets, c -> c < 0);
+            case SEMVER_LESS_THAN_OR_EQUAL:
+                return compareSemver(value, targets, c -> c <= 0);
             default:
                 return false;
         }
     }
 
+    /**
+     * Compares {@code value} against each condition value as a semantic version, returning true
+     * when the comparison sign satisfies {@code predicate} for any condition value. Unparseable
+     * versions contribute no match (consistent with the numeric and date/time operators). See
+     * {@link SemverComparer} for the precedence rules.
+     */
+    private boolean compareSemver(String value, List<String> targets, IntPredicate predicate) {
+        SemverComparer.SemverVersion left = SemverComparer.parse(value);
+        if (left == null) {
+            return false;
+        }
+        for (String target : targets) {
+            SemverComparer.SemverVersion right = SemverComparer.parse(target);
+            if (right != null && predicate.test(SemverComparer.compare(left, right))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private boolean matchesRegex(String value, String pattern) {
         try {
-            return Pattern.compile(pattern, Pattern.CASE_INSENSITIVE).matcher(value).find();
+            // Case-sensitive matching mirrors the engine (RegexOptions.None).
+            // Case-insensitivity is opt-in via the (?i) inline flag in the pattern.
+            //
+            // ReDoS note (#1460): the engine bounds catastrophic backtracking with a
+            // 100ms regex timeout, but java.util.regex has no built-in per-match
+            // timeout — interrupting a match requires a watchdog thread or an
+            // interruptible CharSequence, too heavyweight for this lightweight
+            // evaluator. A pathological config pattern can therefore still be slow
+            // here; an invalid pattern throws PatternSyntaxException → no match.
+            return Pattern.compile(pattern).matcher(value).find();
         } catch (Exception e) {
             return false;
         }
     }
 
-    private int compareNumeric(String value, String target) {
+    /**
+     * Compares {@code value} against each condition value as a number, returning true when the
+     * comparison sign satisfies {@code predicate} for any condition value. A non-numeric value
+     * matches nothing and non-numeric condition values are skipped — mirroring the engine's
+     * {@code double.TryParse}. There is deliberately no lexical String-compare fallback: it
+     * produced matches the engine rejects (e.g. "gold" &gt; "abc"), #1456.
+     */
+    private boolean compareNumeric(String value, List<String> targets, IntPredicate predicate) {
+        Double left = parseDouble(value);
+        if (left == null) {
+            return false;
+        }
+        for (String target : targets) {
+            Double right = parseDouble(target);
+            if (right != null && predicate.test(Double.compare(left, right))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static Double parseDouble(String value) {
         try {
-            double numValue = Double.parseDouble(value);
-            double numTarget = Double.parseDouble(target);
-            return Double.compare(numValue, numTarget);
+            return Double.parseDouble(value);
         } catch (NumberFormatException e) {
-            return value.compareToIgnoreCase(target);
+            return null;
         }
     }
 
-    private int compareDateTime(String value, String target) {
+    /**
+     * Compares {@code value} against each condition value as a date/time, returning true when
+     * {@code comparison} holds against any condition value. Both sides are normalised to a UTC
+     * {@link Instant} (see {@link #parseDateTime(String)}): an unparseable value matches nothing
+     * and unparseable condition values are skipped — mirroring the engine's
+     * {@code DateTimeOffset.TryParse}/unix-seconds logic. There is deliberately no lexical
+     * String-compare fallback: it produced matches the engine rejects (#1455).
+     */
+    private boolean compareDateTime(String value, List<String> targets, BiPredicate<Instant, Instant> comparison) {
+        Instant left = parseDateTime(value);
+        if (left == null) {
+            return false;
+        }
+        for (String target : targets) {
+            Instant right = parseDateTime(target);
+            if (right != null && comparison.test(left, right)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Parses {@code value} to a UTC-normalised {@link Instant}, mirroring the engine's date
+     * handling. An ISO-8601 string carrying an offset ({@code +05:00} or {@code Z}) is honoured;
+     * one without an offset is assumed UTC. A bare integer is treated as Unix time in seconds.
+     * Returns {@code null} when none of those parses succeed.
+     */
+    private static Instant parseDateTime(String value) {
+        // Offset-aware ISO-8601 (handles "+05:00" and "Z").
         try {
-            java.time.Instant v = java.time.Instant.parse(value);
-            java.time.Instant t = java.time.Instant.parse(target);
-            return v.compareTo(t);
-        } catch (Exception e) {
-            return value.compareToIgnoreCase(target);
+            return OffsetDateTime.parse(value).toInstant();
+        } catch (DateTimeParseException ignored) {
+            // fall through
+        }
+        // ISO-8601 date-time without an offset — assume UTC.
+        try {
+            return LocalDateTime.parse(value).atOffset(ZoneOffset.UTC).toInstant();
+        } catch (DateTimeParseException ignored) {
+            // fall through
+        }
+        // ISO-8601 date only — assume start-of-day UTC.
+        try {
+            return LocalDate.parse(value).atStartOfDay().atOffset(ZoneOffset.UTC).toInstant();
+        } catch (DateTimeParseException ignored) {
+            // fall through
+        }
+        // Unix time in seconds.
+        try {
+            return Instant.ofEpochSecond(Long.parseLong(value.trim()));
+        } catch (NumberFormatException | DateTimeException ignored) {
+            return null;
         }
     }
 
-    String resolveServeConfig(ServeConfig serve, EvaluationContext context, String flagKey) {
+    String resolveServeConfig(ServeConfig serve, EvaluationContext context) {
         if (serve.getType() == ServeType.FIXED) {
             return serve.getVariation() != null ? serve.getVariation() : "";
         }
@@ -257,11 +400,20 @@ public final class FlagEvaluator {
         String bucketBy = serve.getBucketBy() != null ? serve.getBucketBy() : "userId";
         Object bucketAttr = context.getAttribute(bucketBy);
         String bucketValue = bucketAttr != null ? bucketAttr.toString() : "";
-        String salt = serve.getSalt() != null ? serve.getSalt() : flagKey;
+        String salt = serve.getSalt() != null ? serve.getSalt() : "";
+
+        List<WeightedVariation> variations = serve.getVariations();
+
+        // Keyless user contexts can't be bucketed. Rather than hashing the empty value
+        // into an arbitrary salt-dependent bucket, serve the control (first) variation
+        // deterministically. The engine assigns a random GUID per eval (spreading
+        // anonymous users over HTTP); local SDK eval is deterministic, so parity is
+        // guaranteed only for keyed contexts (#1457).
+        if (bucketValue.isEmpty() && (bucketBy.equals("userId") || bucketBy.equals("user_id")) && variations != null && !variations.isEmpty())
+            return variations.get(0).getKey();
 
         int bucket = calculateBucket(salt, bucketValue);
 
-        List<WeightedVariation> variations = serve.getVariations();
         if (variations == null || variations.isEmpty()) {
             return serve.getVariation() != null ? serve.getVariation() : "";
         }

@@ -327,6 +327,16 @@ class FlagEvaluatorTest {
     }
 
     @Test
+    void matchesRegexIsCaseSensitive() {
+        // Case-sensitive matching mirrors the engine (RegexOptions.None): a
+        // mixed-case pattern matches only the exact case.
+        assertOperator(ConditionOperator.MATCHES_REGEX, "US", List.of("^US$"), true);
+        assertOperator(ConditionOperator.MATCHES_REGEX, "us", List.of("^US$"), false);
+        // Case-insensitivity is opt-in via the (?i) inline flag in the pattern.
+        assertOperator(ConditionOperator.MATCHES_REGEX, "us", List.of("(?i)^US$"), true);
+    }
+
+    @Test
     void matchesRegexInvalidPatternReturnsFalse() {
         assertOperator(ConditionOperator.MATCHES_REGEX, "hello", List.of("[invalid"), false);
     }
@@ -356,15 +366,230 @@ class FlagEvaluatorTest {
     }
 
     @Test
+    void numericNonNumericOperandDoesNotMatch() {
+        // #1456: a non-numeric operand must contribute no match (mirroring the engine's
+        // Double parse). The SDK previously fell back to a lexical String compare, so
+        // "gold" > "abc" matched server-incompatibly.
+        assertOperator(ConditionOperator.GREATER_THAN, "gold", List.of("abc"), false);
+        assertOperator(ConditionOperator.GREATER_THAN_OR_EQUAL, "abc", List.of("-5"), false);
+        // An unparseable condition value is skipped but a numeric one still matches.
+        assertOperator(ConditionOperator.GREATER_THAN, "15", List.of("abc", "10"), true);
+        // Sanity: a genuinely numeric comparison still matches.
+        assertOperator(ConditionOperator.GREATER_THAN, "15", List.of("10"), true);
+    }
+
+    @Test
     void beforeOperator() {
         assertOperator(ConditionOperator.BEFORE, "2024-01-01T00:00:00Z", List.of("2025-01-01T00:00:00Z"), true);
         assertOperator(ConditionOperator.BEFORE, "2025-01-01T00:00:00Z", List.of("2024-01-01T00:00:00Z"), false);
+        assertOperator(ConditionOperator.BEFORE, "2026-06-01T00:00:00Z", List.of("2026-01-01T00:00:00Z"), false);
     }
 
     @Test
     void afterOperator() {
         assertOperator(ConditionOperator.AFTER, "2025-01-01T00:00:00Z", List.of("2024-01-01T00:00:00Z"), true);
         assertOperator(ConditionOperator.AFTER, "2024-01-01T00:00:00Z", List.of("2025-01-01T00:00:00Z"), false);
+        assertOperator(ConditionOperator.AFTER, "2026-06-01T00:00:00Z", List.of("2026-01-01T00:00:00Z"), true);
+    }
+
+    @Test
+    void beforeAfterHonorTimezoneOffsets() {
+        // #1455: an offset-bearing value must be normalised to UTC before comparison.
+        // 12:00+05:00 is 07:00Z, which is before 08:00Z.
+        assertOperator(ConditionOperator.BEFORE, "2026-01-01T12:00:00+05:00", List.of("2026-01-01T08:00:00Z"), true);
+        assertOperator(ConditionOperator.AFTER, "2026-01-01T12:00:00+05:00", List.of("2026-01-01T08:00:00Z"), false);
+    }
+
+    @Test
+    void beforeAfterAssumeUtcWhenNoOffsetPresent() {
+        // #1455: a value with no timezone offset is assumed UTC (mirrors the engine's
+        // AssumeUniversal). The old Instant.parse rejected this and fell back to a lexical
+        // String compare; here 08:00 (UTC) is before 09:00Z.
+        assertOperator(ConditionOperator.BEFORE, "2026-01-01T08:00:00", List.of("2026-01-01T09:00:00Z"), true);
+        assertOperator(ConditionOperator.AFTER, "2026-01-01T08:00:00", List.of("2026-01-01T09:00:00Z"), false);
+    }
+
+    @Test
+    void beforeAfterSupportUnixSecondsValue() {
+        // #1455: an integer value is treated as Unix time in seconds. 1700000000 → 2023-11-14.
+        assertOperator(ConditionOperator.AFTER, "1700000000", List.of("2020-01-01T00:00:00Z"), true);
+        assertOperator(ConditionOperator.BEFORE, "1700000000", List.of("2020-01-01T00:00:00Z"), false);
+    }
+
+    @Test
+    void beforeAfterSupportUnixSecondsConditionValue() {
+        // #1455: a condition value may itself be Unix seconds. 1700000000 → 2023-11-14,
+        // which is before 2023-11-15.
+        assertOperator(ConditionOperator.AFTER, "2023-11-15T00:00:00Z", List.of("1700000000"), true);
+    }
+
+    @Test
+    void beforeAfterUnparseableValueDoesNotMatch() {
+        // #1455: an unparseable value must contribute NO match — never a lexical
+        // compareToIgnoreCase fallback. The old code returned true here ("hello" vs "world").
+        assertOperator(ConditionOperator.BEFORE, "hello", List.of("world"), false);
+        assertOperator(ConditionOperator.AFTER, "hello", List.of("world"), false);
+    }
+
+    @Test
+    void beforeAfterMatchAnyConditionValue() {
+        // Mirrors the engine's "any-of" semantics: true if the date satisfies the operator
+        // against ANY supplied condition value.
+        assertOperator(ConditionOperator.AFTER, "2026-03-01T00:00:00Z",
+            List.of("2030-01-01T00:00:00Z", "2020-01-01T00:00:00Z"), true);
+    }
+
+    @Test
+    void beforeAfterSkipUnparseableConditionValues() {
+        // An unparseable condition value is skipped, but a parseable one still matches.
+        assertOperator(ConditionOperator.BEFORE, "2026-01-01T07:30:00Z",
+            List.of("garbage", "2026-01-01T08:00:00Z"), true);
+    }
+
+    @Test
+    void beforeAfterEmptyValuesDoesNotMatch() {
+        // No condition values → no match, and no exception.
+        assertOperator(ConditionOperator.BEFORE, "2026-01-01T00:00:00Z", Collections.emptyList(), false);
+        assertOperator(ConditionOperator.AFTER, "2026-01-01T00:00:00Z", Collections.emptyList(), false);
+    }
+
+    @Test
+    void semverEqualsOperator() {
+        assertOperator(ConditionOperator.SEMVER_EQUALS, "2.0.0", List.of("2.0"), true); // 2.0 == 2.0.0
+        assertOperator(ConditionOperator.SEMVER_EQUALS, "2.0.1", List.of("2.0.0"), false);
+    }
+
+    @Test
+    void semverGreaterThanOperator() {
+        // Multi-segment regression: decimal comparison mis-parsed "2.10.1" and got these wrong.
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN, "2.10.1", List.of("2.0"), true);
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN, "2.10", List.of("2.9"), true);
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN, "2.0", List.of("2.0.0"), false);
+    }
+
+    @Test
+    void semverGreaterThanOrEqualOperator() {
+        // The canonical #1409 regression: 2.10.1 >= 2.0 (decimal path returned false).
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN_OR_EQUAL, "2.10.1", List.of("2.0"), true);
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN_OR_EQUAL, "2.0", List.of("2.0.0"), true);
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN_OR_EQUAL, "1.9.9", List.of("2.0"), false);
+    }
+
+    @Test
+    void semverLessThanOperator() {
+        assertOperator(ConditionOperator.SEMVER_LESS_THAN, "1.9.9", List.of("2.0"), true);
+        assertOperator(ConditionOperator.SEMVER_LESS_THAN, "2.10.1", List.of("2.0"), false);
+    }
+
+    @Test
+    void semverLessThanOrEqualOperator() {
+        assertOperator(ConditionOperator.SEMVER_LESS_THAN_OR_EQUAL, "1.9.9", List.of("2.0"), true);
+        assertOperator(ConditionOperator.SEMVER_LESS_THAN_OR_EQUAL, "2.0.0", List.of("2.0"), true);
+        assertOperator(ConditionOperator.SEMVER_LESS_THAN_OR_EQUAL, "2.10.1", List.of("2.0"), false);
+    }
+
+    @Test
+    void semverMatchesAnyConditionValue() {
+        // Mirrors the engine/JS "any-of" semantics: true if the version satisfies the operator
+        // against ANY supplied condition value, not just the first.
+        assertOperator(ConditionOperator.SEMVER_EQUALS, "3.1.4", List.of("1.0", "3.1.4", "9.9.9"), true);
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN, "5.0.0", List.of("9.0", "4.9"), true);
+    }
+
+    @Test
+    void semverUnparseableInputsDoNotMatch() {
+        // Unparseable attribute value never matches (consistent with numeric/date operators).
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN, "not-a-version", List.of("2.0"), false);
+        // An unparseable condition value contributes no match but doesn't fail the others.
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN, "3.0.0", List.of("not-a-version", "2.0"), true);
+    }
+
+    @Test
+    void semverEmptyValuesDoesNotMatch() {
+        // No condition values → no match, and no exception.
+        assertOperator(ConditionOperator.SEMVER_GREATER_THAN_OR_EQUAL, "2.0.0", Collections.emptyList(), false);
+    }
+
+    // --- Type-aware numeric Equals/In coercion (#1458) ---
+
+    /**
+     * Builds a single-condition context evaluation against a native (non-stringified)
+     * attribute value so the type-aware numeric branch in {@link FlagEvaluator#evaluateCondition}
+     * is exercised. Mirrors the engine: when the attribute is a Number (booleans excluded),
+     * EQUALS/NOT_EQUALS/IN/NOT_IN compare the condition literals numerically.
+     */
+    private void assertNumericCondition(Object attrValue, ConditionOperator op, List<String> values,
+                                        boolean negate, boolean expected) {
+        Condition cond = new Condition();
+        cond.setAttribute("attr");
+        cond.setOperator(op);
+        cond.setValues(values);
+        cond.setNegate(negate);
+
+        EvaluationContext ctx = EvaluationContext.builder("user-1").set("attr", attrValue).build();
+        boolean result = evaluator.evaluateCondition(cond, ctx);
+        assertThat(result)
+            .as("attr=%s (%s) op=%s values=%s negate=%s", attrValue,
+                attrValue != null ? attrValue.getClass().getSimpleName() : "null", op, values, negate)
+            .isEqualTo(expected);
+    }
+
+    private void assertNumericCondition(Object attrValue, ConditionOperator op, List<String> values, boolean expected) {
+        assertNumericCondition(attrValue, op, values, false, expected);
+    }
+
+    @Test
+    void numericEqualsCoercesNativeNumbers() {
+        // Double 1.0 matches "1.0" and "1"
+        assertNumericCondition(1.0, ConditionOperator.EQUALS, List.of("1.0"), true);
+        assertNumericCondition(1.0, ConditionOperator.EQUALS, List.of("1"), true);
+        // Integer 1 matches "1.0" and "1" (1 == 1.0)
+        assertNumericCondition(1, ConditionOperator.EQUALS, List.of("1.0"), true);
+        assertNumericCondition(1, ConditionOperator.EQUALS, List.of("1"), true);
+        // Fractional values
+        assertNumericCondition(1.5, ConditionOperator.EQUALS, List.of("1.5"), true);
+        assertNumericCondition(1.5, ConditionOperator.EQUALS, List.of("1"), false);
+    }
+
+    @Test
+    void numericInCoercesNativeNumbers() {
+        assertNumericCondition(2, ConditionOperator.IN, List.of("1", "2.0"), true);
+        assertNumericCondition(3, ConditionOperator.IN, List.of("1", "2"), false);
+    }
+
+    @Test
+    void numericNotEqualsAndNotInNegateTheMatch() {
+        assertNumericCondition(1.0, ConditionOperator.NOT_EQUALS, List.of("1.0"), false);
+        assertNumericCondition(1.0, ConditionOperator.NOT_EQUALS, List.of("2"), true);
+        assertNumericCondition(3, ConditionOperator.NOT_IN, List.of("1", "2"), true);
+    }
+
+    @Test
+    void numericEqualsStrictLiteralParse() {
+        // Non-numeric and partially-numeric literals contribute no match (strict parse)
+        assertNumericCondition(1, ConditionOperator.EQUALS, List.of("abc"), false);
+        assertNumericCondition(1, ConditionOperator.EQUALS, List.of("1abc"), false);
+    }
+
+    @Test
+    void booleanAttributeNotCoercedToNumeric() {
+        // Java's Boolean does NOT implement Number, so it stays on the string path.
+        // "true".equals("1") is false; "true".equals("true") is true.
+        assertNumericCondition(true, ConditionOperator.EQUALS, List.of("1"), false);
+        assertNumericCondition(true, ConditionOperator.EQUALS, List.of("true"), true);
+    }
+
+    @Test
+    void stringAttributeNotCoercedToNumeric() {
+        // A genuine String attribute keeps string semantics — "1.0" != "1", leading zeros preserved.
+        assertNumericCondition("1.0", ConditionOperator.EQUALS, List.of("1"), false);
+        assertNumericCondition("01234", ConditionOperator.EQUALS, List.of("1234"), false);
+    }
+
+    @Test
+    void numericEqualsWithNegateInverts() {
+        // Numeric mismatch (1 != 2) → result false → negate → true.
+        assertNumericCondition(1, ConditionOperator.EQUALS, List.of("2"), true, true);
     }
 
     @Test
@@ -462,9 +687,26 @@ class FlagEvaluatorTest {
 
         // Same user always gets same variation
         EvaluationContext ctx = EvaluationContext.builder("user-1").build();
-        String result1 = evaluator.resolveServeConfig(rollout, ctx, "flag");
-        String result2 = evaluator.resolveServeConfig(rollout, ctx, "flag");
+        String result1 = evaluator.resolveServeConfig(rollout, ctx);
+        String result2 = evaluator.resolveServeConfig(rollout, ctx);
         assertThat(result1).isEqualTo(result2);
+    }
+
+    @Test
+    void rolloutWithNoVariationsServesDefault() {
+        // Env-level PercentageRollout emits a Rollout serve with its default variation set but
+        // no weighted variations (no per-variation weight storage at the env level, #1469). The
+        // evaluator degrades to the default variation instead of dereferencing a null/empty
+        // variations list. Regression lock — the guard already exists in the SDK evaluator.
+        ServeConfig rollout = new ServeConfig();
+        rollout.setType(ServeType.ROLLOUT);
+        rollout.setBucketBy("userId");
+        rollout.setVariation("off");
+        // variations intentionally left null
+
+        EvaluationContext ctx = EvaluationContext.builder("user-1").build();
+        String result = evaluator.resolveServeConfig(rollout, ctx);
+        assertThat(result).isEqualTo("off");
     }
 
     @Test
@@ -483,7 +725,7 @@ class FlagEvaluatorTest {
         rollout.setVariations(List.of(v1, v2));
 
         EvaluationContext ctx = EvaluationContext.builder("user-1").set("orgId", "org-1").build();
-        String result = evaluator.resolveServeConfig(rollout, ctx, "flag");
+        String result = evaluator.resolveServeConfig(rollout, ctx);
         assertThat(result).isIn("control", "treatment");
     }
 
@@ -524,11 +766,67 @@ class FlagEvaluatorTest {
                 .set("userId", "custom-user")
                 .build();
 
-        String resultDefault = evaluator.resolveServeConfig(rolloutDefault, ctx, "flag");
-        String resultExplicit = evaluator.resolveServeConfig(rolloutExplicit, ctx, "flag");
+        String resultDefault = evaluator.resolveServeConfig(rolloutDefault, ctx);
+        String resultExplicit = evaluator.resolveServeConfig(rolloutExplicit, ctx);
 
         // Default should behave same as explicit "userId" — both use custom attribute
         assertThat(resultDefault).isEqualTo(resultExplicit);
+    }
+
+    @Test
+    void keylessContextServesControlVariationDeterministically() {
+        // #1457: a keyless/anonymous context (no userId/user_id) can't be bucketed.
+        // Rather than hashing the empty value into an arbitrary salt-dependent bucket,
+        // the rollout serves the control (first) variation deterministically. The thin
+        // control weight (1) means the old empty-hash collapse would NOT land on "on".
+        WeightedVariation control = new WeightedVariation();
+        control.setKey("on");
+        control.setWeight(1);
+        WeightedVariation rest = new WeightedVariation();
+        rest.setKey("off");
+        rest.setWeight(99);
+
+        ServeConfig rollout = new ServeConfig();
+        rollout.setType(ServeType.ROLLOUT);
+        rollout.setBucketBy("userId");
+        rollout.setSalt("test-salt");
+        rollout.setVariations(List.of(control, rest));
+
+        // Keyless/anonymous context: empty user key, no user_id attribute.
+        EvaluationContext ctx = EvaluationContext.builder("").build();
+
+        for (int i = 0; i < 20; i++) {
+            String result = evaluator.resolveServeConfig(rollout, ctx);
+            assertThat(result).as("eval #%d", i).isEqualTo("on");
+        }
+    }
+
+    private static ServeConfig rolloutServe(String salt) {
+        WeightedVariation on = new WeightedVariation();
+        on.setKey("on");
+        on.setWeight(50);
+        WeightedVariation off = new WeightedVariation();
+        off.setKey("off");
+        off.setWeight(50);
+        ServeConfig s = new ServeConfig();
+        s.setType(ServeType.ROLLOUT);
+        s.setBucketBy("userId");
+        s.setSalt(salt);
+        s.setVariations(List.of(on, off));
+        return s;
+    }
+
+    @Test
+    void rolloutNullSaltBucketsLikeEmptySalt() {
+        // A null salt must hash as "" (engine behavior), not the flag key.
+        // Pre-fix: null -> flagKey "rollout-flag" -> diverges for some users -> FAIL.
+        ServeConfig nullSalt = rolloutServe(null);
+        ServeConfig emptySalt = rolloutServe("");
+        for (int i = 0; i < 50; i++) {
+            EvaluationContext ctx = EvaluationContext.builder("user-" + i).build();
+            assertThat(evaluator.resolveServeConfig(nullSalt, ctx))
+                .isEqualTo(evaluator.resolveServeConfig(emptySalt, ctx));
+        }
     }
 
     // --- Segment Evaluation Tests ---
@@ -593,6 +891,33 @@ class FlagEvaluatorTest {
 
         EvaluationContext ctx = EvaluationContext.builder("user-1").build();
         FlagEvaluator.Result result = evaluator.evaluate(flag, ctx);
+        assertThat(result.getReason()).isEqualTo(EvaluationReason.FALLTHROUGH);
+        assertThat(result.getVariationKey()).isEqualTo("off");
+    }
+
+    @Test
+    void ruleWithSegmentKeyAndNoStoreReturnsFalse() {
+        // A non-empty segmentKey with no segment source (null store) must fail
+        // closed (no match), mirroring the engine + C# SDK, rather than falling
+        // through to the rule's empty condition groups (which match
+        // unconditionally). See #1459.
+        FlagEvaluator noStoreEvaluator = new FlagEvaluator(null);
+
+        TargetingRule rule = new TargetingRule();
+        rule.setId("rule-1");
+        rule.setPriority(0);
+        rule.setSegmentKey("beta-users");
+        rule.setServe(fixedServe("on"));
+
+        FlagConfiguration flag = new FlagConfiguration();
+        flag.setKey("test");
+        flag.setEnabled(true);
+        flag.setRules(List.of(rule));
+        flag.setFallthrough(fixedServe("off"));
+        flag.setVariations(List.of(boolVariation("on", true), boolVariation("off", false)));
+
+        EvaluationContext ctx = EvaluationContext.builder("user-1").build();
+        FlagEvaluator.Result result = noStoreEvaluator.evaluate(flag, ctx);
         assertThat(result.getReason()).isEqualTo(EvaluationReason.FALLTHROUGH);
         assertThat(result.getVariationKey()).isEqualTo("off");
     }

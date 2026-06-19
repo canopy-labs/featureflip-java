@@ -15,8 +15,12 @@ public final class EvaluationContext {
     public String getUserId() { return userId; }
 
     public Object getAttribute(String key) {
-        // Built-in user_id takes precedence over custom attributes
-        if (key.equalsIgnoreCase("userId") || key.equalsIgnoreCase("user_id")) {
+        // Built-in user id takes precedence over custom attributes. The
+        // "userId"/"user_id" alias is matched case-sensitively (not
+        // equalsIgnoreCase) to mirror the engine's EvaluationContext.GetAttribute
+        // and the other SDKs — a single documented aliasing rule across engine +
+        // SDKs (#1460). A differently cased key falls through to a custom lookup.
+        if (key.equals("userId") || key.equals("user_id")) {
             return userId;
         }
 

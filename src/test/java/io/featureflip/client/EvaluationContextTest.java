@@ -62,4 +62,18 @@ class EvaluationContextTest {
         EvaluationContext ctx = EvaluationContext.builder("user-1").build();
         assertThat(ctx.getAttribute("nonexistent")).isNull();
     }
+
+    // The userId/user_id alias to the built-in user id is case-sensitive,
+    // mirroring the engine's EvaluationContext.GetAttribute (#1460). Exact
+    // "userId"/"user_id" resolve the built-in; other casings do not (here they
+    // fall through to an absent custom attribute → null).
+    @Test
+    void getAttributeUserIdAliasIsCaseSensitive() {
+        EvaluationContext ctx = EvaluationContext.builder("user-1").build();
+        assertThat(ctx.getAttribute("userId")).isEqualTo("user-1");
+        assertThat(ctx.getAttribute("user_id")).isEqualTo("user-1");
+        assertThat(ctx.getAttribute("USERID")).isNull();
+        assertThat(ctx.getAttribute("User_Id")).isNull();
+        assertThat(ctx.getAttribute("userid")).isNull();
+    }
 }
