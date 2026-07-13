@@ -1,0 +1,1044 @@
+{
+  "schemaVersion": 1,
+  "generatedFrom": "engine",
+  "bucketVectors": [
+    {
+      "id": "b-basic",
+      "salt": "flag-abc",
+      "value": "user-42",
+      "expectedBucket": 46
+    },
+    {
+      "id": "b-empty-salt",
+      "salt": "",
+      "value": "user-42",
+      "expectedBucket": 75
+    },
+    {
+      "id": "b-empty-value",
+      "salt": "flag-abc",
+      "value": "",
+      "expectedBucket": 21
+    },
+    {
+      "id": "b-unicode",
+      "salt": "flag-abc",
+      "value": "\u7528\u6237-1",
+      "expectedBucket": 99
+    }
+  ],
+  "rolloutVectors": [
+    {
+      "id": "r-5050",
+      "salt": "s",
+      "value": "u",
+      "variations": [
+        {
+          "key": "on",
+          "weight": 50
+        },
+        {
+          "key": "off",
+          "weight": 50
+        }
+      ],
+      "expectedVariation": "off"
+    },
+    {
+      "id": "r-boundary-in",
+      "salt": "rollout-boundary",
+      "value": "user-547",
+      "variations": [
+        {
+          "key": "on",
+          "weight": 50
+        },
+        {
+          "key": "off",
+          "weight": 50
+        }
+      ],
+      "expectedVariation": "on"
+    },
+    {
+      "id": "r-boundary-out",
+      "salt": "rollout-boundary",
+      "value": "user-63",
+      "variations": [
+        {
+          "key": "on",
+          "weight": 50
+        },
+        {
+          "key": "off",
+          "weight": 50
+        }
+      ],
+      "expectedVariation": "off"
+    },
+    {
+      "id": "r-zero-hundred",
+      "salt": "z",
+      "value": "any",
+      "variations": [
+        {
+          "key": "never",
+          "weight": 0
+        },
+        {
+          "key": "always",
+          "weight": 100
+        }
+      ],
+      "expectedVariation": "always"
+    },
+    {
+      "id": "r-3way",
+      "salt": "3w",
+      "value": "user-7",
+      "variations": [
+        {
+          "key": "a",
+          "weight": 33
+        },
+        {
+          "key": "b",
+          "weight": 33
+        },
+        {
+          "key": "c",
+          "weight": 34
+        }
+      ],
+      "expectedVariation": "a"
+    },
+    {
+      "id": "r-single-100",
+      "salt": "one",
+      "value": "user-99",
+      "variations": [
+        {
+          "key": "yes",
+          "weight": 100
+        }
+      ],
+      "expectedVariation": "yes"
+    }
+  ],
+  "conditionVectors": [
+    {
+      "id": "c-eq-ci",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "Equals",
+      "values": [
+        "us"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-num-coerce-number-vs-string",
+      "attribute": {
+        "type": "number",
+        "value": 1.0
+      },
+      "operator": "Equals",
+      "values": [
+        "1"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-num-coerce-in",
+      "attribute": {
+        "type": "number",
+        "value": 42.0
+      },
+      "operator": "In",
+      "values": [
+        "41",
+        "42",
+        "43"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-bool-not-coerced",
+      "attribute": {
+        "type": "boolean",
+        "value": true
+      },
+      "operator": "Equals",
+      "values": [
+        "1"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-regex-cs-match",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "MatchesRegex",
+      "values": [
+        "^US$"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-regex-cs-nomatch",
+      "attribute": {
+        "type": "string",
+        "value": "us"
+      },
+      "operator": "MatchesRegex",
+      "values": [
+        "^US$"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-semver-pre-beta-gt-alpha",
+      "attribute": {
+        "type": "string",
+        "value": "1.0.0-Beta"
+      },
+      "operator": "SemverGreaterThan",
+      "values": [
+        "1.0.0-alpha"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-semver-pre-RC-gt-rc",
+      "attribute": {
+        "type": "string",
+        "value": "1.0.0-RC"
+      },
+      "operator": "SemverGreaterThan",
+      "values": [
+        "1.0.0-rc"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-semver-missing-segment",
+      "attribute": {
+        "type": "string",
+        "value": "2.0"
+      },
+      "operator": "SemverEquals",
+      "values": [
+        "2.0.0"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-offset",
+      "attribute": {
+        "type": "string",
+        "value": "2023-05-15T12:00:00\u002B02:00"
+      },
+      "operator": "After",
+      "values": [
+        "2023-05-15T09:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-no-offset",
+      "attribute": {
+        "type": "string",
+        "value": "2023-05-15T12:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2023-05-16T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-unix",
+      "attribute": {
+        "type": "string",
+        "value": "1700000000"
+      },
+      "operator": "After",
+      "values": [
+        "2020-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-unparseable",
+      "attribute": {
+        "type": "string",
+        "value": "not-a-date"
+      },
+      "operator": "After",
+      "values": [
+        "2020-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-num-on-text",
+      "attribute": {
+        "type": "string",
+        "value": "abc"
+      },
+      "operator": "GreaterThan",
+      "values": [
+        "5"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-contains-ci",
+      "attribute": {
+        "type": "string",
+        "value": "Hello World"
+      },
+      "operator": "Contains",
+      "values": [
+        "world"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-startswith-ci",
+      "attribute": {
+        "type": "string",
+        "value": "Hello World"
+      },
+      "operator": "StartsWith",
+      "values": [
+        "hello"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-endswith-ci",
+      "attribute": {
+        "type": "string",
+        "value": "Hello World"
+      },
+      "operator": "EndsWith",
+      "values": [
+        "WORLD"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-negate-true",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "Equals",
+      "values": [
+        "UK"
+      ],
+      "negate": true,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-negate-false",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "Equals",
+      "values": [
+        "US"
+      ],
+      "negate": true,
+      "expectedMatch": false
+    }
+  ],
+  "flagVectors": [
+    {
+      "id": "f-fallthrough",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "on"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "on",
+        "value": true,
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-disabled",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": false,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "on"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "off",
+        "value": false,
+        "reason": {
+          "kind": "FlagDisabled"
+        }
+      }
+    },
+    {
+      "id": "f-rule-match",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "beta",
+              "value": "beta-value"
+            },
+            {
+              "key": "control",
+              "value": "control-value"
+            }
+          ],
+          "rules": [
+            {
+              "id": "rule-beta-users",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "plan",
+                      "operator": "Equals",
+                      "values": [
+                        "beta"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "beta"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "control"
+          },
+          "offVariation": "control",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {
+          "plan": "beta"
+        }
+      },
+      "expected": {
+        "variation": "beta",
+        "value": "beta-value",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "rule-beta-users"
+        }
+      }
+    },
+    {
+      "id": "f-prereq-failed",
+      "flagKey": "child",
+      "flags": [
+        {
+          "key": "parent",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        },
+        {
+          "key": "child",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "feature",
+              "value": "feature-value"
+            },
+            {
+              "key": "fallback",
+              "value": "fallback-value"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "feature"
+          },
+          "offVariation": "fallback",
+          "prerequisites": [
+            {
+              "prerequisiteFlagKey": "parent",
+              "expectedVariationKey": "on"
+            }
+          ]
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "fallback",
+        "value": "fallback-value",
+        "reason": {
+          "kind": "PrerequisiteFailed",
+          "prerequisiteKey": "parent"
+        }
+      }
+    },
+    {
+      "id": "f-prereq-satisfied",
+      "flagKey": "child",
+      "flags": [
+        {
+          "key": "parent",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "on"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        },
+        {
+          "key": "child",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "feature",
+              "value": "feature-value"
+            },
+            {
+              "key": "fallback",
+              "value": "fallback-value"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "feature"
+          },
+          "offVariation": "fallback",
+          "prerequisites": [
+            {
+              "prerequisiteFlagKey": "parent",
+              "expectedVariationKey": "on"
+            }
+          ]
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "feature",
+        "value": "feature-value",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-segment-match",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "premium",
+              "value": "premium-value"
+            },
+            {
+              "key": "standard",
+              "value": "standard-value"
+            }
+          ],
+          "rules": [
+            {
+              "id": "segment-rule",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Fixed",
+                "variation": "premium"
+              },
+              "segmentKey": "premium-users"
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "standard"
+          },
+          "offVariation": "standard",
+          "prerequisites": []
+        }
+      ],
+      "segments": [
+        {
+          "key": "premium-users",
+          "version": 1,
+          "conditions": [
+            {
+              "attribute": "plan",
+              "operator": "Equals",
+              "values": [
+                "premium"
+              ],
+              "negate": false
+            }
+          ],
+          "conditionLogic": "And"
+        }
+      ],
+      "context": {
+        "userId": "u",
+        "attributes": {
+          "plan": "premium"
+        }
+      },
+      "expected": {
+        "variation": "premium",
+        "value": "premium-value",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "segment-rule"
+        }
+      }
+    },
+    {
+      "id": "f-segment-no-match",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "premium",
+              "value": "premium-value"
+            },
+            {
+              "key": "standard",
+              "value": "standard-value"
+            }
+          ],
+          "rules": [
+            {
+              "id": "segment-rule",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Fixed",
+                "variation": "premium"
+              },
+              "segmentKey": "premium-users"
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "standard"
+          },
+          "offVariation": "standard",
+          "prerequisites": []
+        }
+      ],
+      "segments": [
+        {
+          "key": "premium-users",
+          "version": 1,
+          "conditions": [
+            {
+              "attribute": "plan",
+              "operator": "Equals",
+              "values": [
+                "premium"
+              ],
+              "negate": false
+            }
+          ],
+          "conditionLogic": "And"
+        }
+      ],
+      "context": {
+        "userId": "u",
+        "attributes": {
+          "plan": "free"
+        }
+      },
+      "expected": {
+        "variation": "standard",
+        "value": "standard-value",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-cond-group-and",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "match",
+              "value": "match-value"
+            },
+            {
+              "key": "nomatch",
+              "value": "nomatch-value"
+            }
+          ],
+          "rules": [
+            {
+              "id": "and-rule",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "country",
+                      "operator": "Equals",
+                      "values": [
+                        "US"
+                      ],
+                      "negate": false
+                    },
+                    {
+                      "attribute": "plan",
+                      "operator": "Equals",
+                      "values": [
+                        "premium"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "match"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "nomatch"
+          },
+          "offVariation": "nomatch",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {
+          "country": "US",
+          "plan": "premium"
+        }
+      },
+      "expected": {
+        "variation": "match",
+        "value": "match-value",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "and-rule"
+        }
+      }
+    },
+    {
+      "id": "f-cond-group-and-fail",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "match",
+              "value": "match-value"
+            },
+            {
+              "key": "nomatch",
+              "value": "nomatch-value"
+            }
+          ],
+          "rules": [
+            {
+              "id": "and-rule",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "country",
+                      "operator": "Equals",
+                      "values": [
+                        "US"
+                      ],
+                      "negate": false
+                    },
+                    {
+                      "attribute": "plan",
+                      "operator": "Equals",
+                      "values": [
+                        "premium"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "match"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "nomatch"
+          },
+          "offVariation": "nomatch",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {
+          "country": "US",
+          "plan": "free"
+        }
+      },
+      "expected": {
+        "variation": "nomatch",
+        "value": "nomatch-value",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-cond-group-or",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "match",
+              "value": "match-value"
+            },
+            {
+              "key": "nomatch",
+              "value": "nomatch-value"
+            }
+          ],
+          "rules": [
+            {
+              "id": "or-rule",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "Or",
+                  "conditions": [
+                    {
+                      "attribute": "country",
+                      "operator": "Equals",
+                      "values": [
+                        "US"
+                      ],
+                      "negate": false
+                    },
+                    {
+                      "attribute": "country",
+                      "operator": "Equals",
+                      "values": [
+                        "CA"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "match"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "nomatch"
+          },
+          "offVariation": "nomatch",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {
+          "country": "CA"
+        }
+      },
+      "expected": {
+        "variation": "match",
+        "value": "match-value",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "or-rule"
+        }
+      }
+    }
+  ]
+}

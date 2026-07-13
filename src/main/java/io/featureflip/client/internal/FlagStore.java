@@ -30,12 +30,17 @@ public final class FlagStore {
     }
 
     public void replace(List<FlagConfiguration> flags, List<Segment> segments) {
+        // Treat null as empty: a `"flags": null` / `"segments": null` payload
+        // deserializes the response collections to null (Jackson overrides the
+        // default), and a null sync snapshot must clear the store rather than NPE.
+        List<FlagConfiguration> safeFlags = flags != null ? flags : Collections.emptyList();
+        List<Segment> safeSegments = segments != null ? segments : Collections.emptyList();
         updateLock.lock();
         try {
             Map<String, FlagConfiguration> flagMap = new HashMap<>();
-            for (FlagConfiguration f : flags) flagMap.put(f.getKey(), f);
+            for (FlagConfiguration f : safeFlags) flagMap.put(f.getKey(), f);
             Map<String, Segment> segMap = new HashMap<>();
-            for (Segment s : segments) segMap.put(s.getKey(), s);
+            for (Segment s : safeSegments) segMap.put(s.getKey(), s);
             snapshot = new Snapshot(Collections.unmodifiableMap(flagMap), Collections.unmodifiableMap(segMap));
         } finally {
             updateLock.unlock();

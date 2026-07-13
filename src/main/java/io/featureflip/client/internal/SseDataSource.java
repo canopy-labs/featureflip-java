@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.featureflip.client.internal.model.FlagConfiguration;
 import io.featureflip.client.internal.model.GetFlagsResponse;
+import io.featureflip.client.internal.model.Segment;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
@@ -13,6 +14,7 @@ import okhttp3.sse.EventSources;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -22,6 +24,11 @@ public final class SseDataSource {
     private static final Logger log = LoggerFactory.getLogger(SseDataSource.class);
     private static final int MAX_BACKOFF_SECONDS = 30;
     private static final int MAX_CONSECUTIVE_FAILURES = 5;
+    // Liveness watchdog: a finite SSE read timeout well above the ~30s server
+    // ping (≈3 missed pings). With readTimeout(0) a half-open socket (silent
+    // LB/NAT idle-drop, no FIN/RST) would block the reader forever; a finite
+    // timeout surfaces as a read failure that onFailure() reconnects/falls back.
+    static final int SSE_READ_TIMEOUT_SECONDS = 90;
 
     private final FlagHttpClient httpClient;
     private final FlagStore store;
@@ -54,13 +61,18 @@ public final class SseDataSource {
         if (es != null) es.cancel();
     }
 
+    // Visible for testing. A finite read timeout acts as a liveness watchdog —
+    // see SSE_READ_TIMEOUT_SECONDS.
+    public OkHttpClient buildSseClient() {
+        return httpClient.getHttpClient().newBuilder()
+            .readTimeout(SSE_READ_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            .build();
+    }
+
     private void connect() {
         if (closed) return;
 
-        // SSE needs long read timeout
-        OkHttpClient sseClient = httpClient.getHttpClient().newBuilder()
-            .readTimeout(0, TimeUnit.MILLISECONDS)
-            .build();
+        OkHttpClient sseClient = buildSseClient();
 
         // Auth header is added by the interceptor in httpClient; only add Accept
         Request request = new Request.Builder()
@@ -129,6 +141,9 @@ public final class SseDataSource {
                 case "segment.updated":
                     handleSegmentUpdated();
                     break;
+                case "sync":
+                    handleSync(data);
+                    break;
                 case "ping":
                     log.debug("SSE ping received");
                     break;
@@ -163,9 +178,26 @@ public final class SseDataSource {
 
     private void handleSegmentUpdated() throws Exception {
         GetFlagsResponse response = httpClient.fetchFlags();
-        store.replace(response.getFlags(), response.getSegments());
+        List<FlagConfiguration> flags = response.getFlags();
+        List<Segment> segments = response.getSegments();
+        store.replace(flags, segments);
         onInitialized.run();
         log.debug("SSE segment updated: replaced {} flags, {} segments",
-            response.getFlags().size(), response.getSegments().size());
+            flags != null ? flags.size() : 0, segments != null ? segments.size() : 0);
+    }
+
+    private void handleSync(String data) throws Exception {
+        // Full config snapshot the server sends on (re)connect. Replace the whole
+        // store so flags changed — or deleted — during a disconnect are re-synced.
+        // Full replace, never merge; the payload is in the event (no refetch).
+        // getFlags()/getSegments() may be null on a `"flags": null` payload — the
+        // store's replace() and the log below both null-coalesce.
+        GetFlagsResponse response = objectMapper.readValue(data, GetFlagsResponse.class);
+        List<FlagConfiguration> flags = response.getFlags();
+        List<Segment> segments = response.getSegments();
+        store.replace(flags, segments);
+        onInitialized.run();
+        log.debug("SSE sync: replaced store with {} flags, {} segments",
+            flags != null ? flags.size() : 0, segments != null ? segments.size() : 0);
     }
 }

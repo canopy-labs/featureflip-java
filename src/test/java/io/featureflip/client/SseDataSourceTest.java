@@ -100,6 +100,18 @@ class SseDataSourceTest {
     }
 
     @Test
+    void sseClientHasFiniteReadTimeoutWatchdog() {
+        // The SSE client must use a finite read timeout (well above the ~30s
+        // server ping) as a liveness watchdog — a half-open socket then surfaces
+        // as a read timeout and reconnects, instead of blocking forever on
+        // readTimeout(0).
+        SseDataSource sse = createDataSource();
+        okhttp3.OkHttpClient client = sse.buildSseClient();
+        assertThat(client.readTimeoutMillis()).isNotZero();
+        assertThat(client.readTimeoutMillis()).isGreaterThan(30_000);
+    }
+
+    @Test
     void flagCreatedFetchesSingleFlag() throws Exception {
         server.enqueue(new MockResponse.Builder()
             .addHeader("Content-Type", "text/event-stream")
@@ -280,5 +292,71 @@ class SseDataSourceTest {
 
         assertThat(store.getAllFlags()).isEmpty();
         assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void syncReplacesStoreWithoutRefetch() throws Exception {
+        // Pre-seed a stale flag the snapshot does NOT contain.
+        FlagConfiguration stale = new FlagConfiguration();
+        stale.setKey("flag-stale");
+        stale.setEnabled(true);
+        store.upsertFlag(stale);
+
+        // A single connect-time `sync` carrying only flag-new (payload is the
+        // full-snapshot shape — same as GET /v1/sdk/flags).
+        server.enqueue(new MockResponse.Builder()
+            .addHeader("Content-Type", "text/event-stream")
+            .body(sseMessage("sync", allFlagsJson("flag-new")))
+            .code(200)
+            .build());
+
+        SseDataSource sseDataSource = createDataSource();
+        sseDataSource.start();
+
+        Thread.sleep(1000);
+        sseDataSource.close();
+
+        assertThat(store.getFlag("flag-new")).isNotNull();
+        // Full REPLACE, not merge: a flag absent from the snapshot is dropped.
+        assertThat(store.getFlag("flag-stale")).isNull();
+        // sync carries the payload — no second (fetch) request, unlike segment.updated.
+        assertThat(server.getRequestCount()).isEqualTo(1);
+    }
+
+    @Test
+    void reconnectsAndResyncsAfterStreamDrop() throws Exception {
+        // A stale flag present before the outage — must be dropped on the reconnect
+        // full-replace.
+        FlagConfiguration stale = new FlagConfiguration();
+        stale.setKey("flag-stale");
+        stale.setEnabled(true);
+        store.upsertFlag(stale);
+
+        // Stream #1: connect-time sync carrying flag-a, then the server closes (drop).
+        server.enqueue(new MockResponse.Builder()
+            .addHeader("Content-Type", "text/event-stream")
+            .body(sseMessage("sync", allFlagsJson("flag-a")))
+            .code(200)
+            .build());
+        // Stream #2 (after the automatic reconnect): sync carrying only flag-b —
+        // flag-a AND flag-stale must be gone (full replace), proving re-sync with
+        // no manual restart.
+        server.enqueue(new MockResponse.Builder()
+            .addHeader("Content-Type", "text/event-stream")
+            .body(sseMessage("sync", allFlagsJson("flag-b")))
+            .code(200)
+            .build());
+
+        SseDataSource sseDataSource = createDataSource();
+        sseDataSource.start();
+
+        // onClosed after stream #1 schedules reconnect at min(2^0,30)=1s; wait past it.
+        Thread.sleep(3000);
+        sseDataSource.close();
+
+        assertThat(store.getFlag("flag-b")).as("re-synced flag after reconnect").isNotNull();
+        assertThat(store.getFlag("flag-a")).as("stream #1 flag replaced on reconnect").isNull();
+        assertThat(store.getFlag("flag-stale")).as("stale pre-outage flag dropped").isNull();
+        assertThat(server.getRequestCount()).as("reconnected with no intervention").isGreaterThanOrEqualTo(2);
     }
 }

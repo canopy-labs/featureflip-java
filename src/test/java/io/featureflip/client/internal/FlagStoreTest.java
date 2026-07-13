@@ -45,6 +45,20 @@ class FlagStoreTest {
     }
 
     @Test
+    void replaceWithNullCollectionsTreatsAsEmpty() {
+        // A `"flags": null` / `"segments": null` payload deserializes the DTO
+        // collections to null (Jackson overrides the default), so replace must
+        // treat null as empty rather than NPE — otherwise a null sync snapshot
+        // silently fails to apply and the store stays stale.
+        FlagStore store = new FlagStore();
+        store.replace(List.of(makeFlag("flag-1")), Collections.emptyList());
+
+        store.replace(null, null); // must not throw
+
+        assertThat(store.getFlag("flag-1")).isNull();
+    }
+
+    @Test
     void upsertAddsNewFlag() {
         FlagStore store = new FlagStore();
         store.replace(List.of(makeFlag("flag-1")), Collections.emptyList());
