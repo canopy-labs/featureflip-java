@@ -122,6 +122,12 @@ public final class FeatureflipClient implements AutoCloseable {
         }
     }
 
+    /**
+     * Structural comparison of two configs, used only to warn when a later
+     * {@code get()} passes meaningfully different options. Inspectors are
+     * deliberately excluded — callbacks aren't structurally comparable, and a
+     * differing lambda must not trigger a spurious "different options" warning.
+     */
     private static boolean configsEqual(FeatureFlagConfig a, FeatureFlagConfig b) {
         if (a == b) return true;
         if (a == null || b == null) return false;
@@ -227,6 +233,11 @@ public final class FeatureflipClient implements AutoCloseable {
         public Builder flushInterval(Duration interval) { configBuilder.flushInterval(interval); return this; }
         public Builder flushBatchSize(int size) { configBuilder.flushBatchSize(size); return this; }
         public Builder initTimeout(Duration timeout) { configBuilder.initTimeout(timeout); return this; }
+        /** @see FeatureFlagConfig.Builder#inspectors(java.util.List) */
+        public Builder inspectors(java.util.List<EvaluationInspector> inspectors) {
+            configBuilder.inspectors(inspectors);
+            return this;
+        }
 
         /**
          * Builds a client by routing through {@link FeatureflipClient#get(String, FeatureFlagConfig)}.

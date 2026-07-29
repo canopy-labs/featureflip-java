@@ -16,6 +16,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Instant;
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -57,6 +59,13 @@ final class SharedFeatureflipCore {
      */
     private final Map<String, Object> testValues;
 
+    /**
+     * Evaluation observers, already null-filtered and unmodifiable (see
+     * {@link FeatureFlagConfig#getInspectors()}). Immutable after construction, so
+     * the evaluation hot path reads it without synchronization.
+     */
+    private final List<EvaluationInspector> inspectors;
+
     private final FlagHttpClient httpClient;
     private final SseDataSource sseDataSource;
     private final PollingDataSource pollingDataSource;
@@ -79,12 +88,13 @@ final class SharedFeatureflipCore {
     // -------------------------------------------------------------------------
 
     /** Test-only constructor backed by a pre-built FlagStore. */
-    private SharedFeatureflipCore(FlagStore store) {
+    private SharedFeatureflipCore(FlagStore store, FeatureFlagConfig config) {
         this.store = store;
         this.evaluator = new FlagEvaluator(store);
-        this.config = FeatureFlagConfig.builder().build();
+        this.config = config;
         this.eventProcessor = new EventProcessor(this.config.getFlushBatchSize());
         this.testValues = null;
+        this.inspectors = config.getInspectors();
 
         this.httpClient = null;
         this.sseDataSource = null;
@@ -102,6 +112,7 @@ final class SharedFeatureflipCore {
         this.config = null;
         this.eventProcessor = null;
         this.testValues = Map.copyOf(testValues);
+        this.inspectors = Collections.emptyList();
 
         this.httpClient = null;
         this.sseDataSource = null;
@@ -127,6 +138,7 @@ final class SharedFeatureflipCore {
         this.eventProcessor = new EventProcessor(config.getFlushBatchSize());
         this.initLatch = new CountDownLatch(1);
         this.testValues = null;
+        this.inspectors = config.getInspectors();
 
         this.httpClient = new FlagHttpClient(sdkKey, config);
         this.executor = Executors.newScheduledThreadPool(2, r -> {
@@ -179,12 +191,24 @@ final class SharedFeatureflipCore {
 
     /** Creates a minimal core for unit tests (empty FlagStore, no background tasks). */
     static SharedFeatureflipCore createForTesting() {
-        return new SharedFeatureflipCore(new FlagStore());
+        return new SharedFeatureflipCore(new FlagStore(), FeatureFlagConfig.builder().build());
     }
 
     /** Creates a test core backed by the given pre-populated FlagStore. */
     static SharedFeatureflipCore createForTesting(FlagStore store) {
-        return new SharedFeatureflipCore(store);
+        return new SharedFeatureflipCore(store, FeatureFlagConfig.builder().build());
+    }
+
+    /**
+     * Creates a test core backed by the given pre-populated FlagStore and config —
+     * lets tests exercise config-driven behaviour (e.g. inspectors) without
+     * starting background tasks or opening network connections.
+     */
+    static SharedFeatureflipCore createForTesting(FlagStore store, FeatureFlagConfig config) {
+        if (config == null) {
+            throw new IllegalArgumentException("config must not be null");
+        }
+        return new SharedFeatureflipCore(store, config);
     }
 
     /** Creates a test-stub core that returns fixed values from the map. */
@@ -286,40 +310,147 @@ final class SharedFeatureflipCore {
     /**
      * Evaluates a flag and returns full detail. Does not track the evaluation event.
      * In test-stub mode, returns the value from the test map directly.
+     *
+     * <p>This is the single evaluation choke point — every {@code boolVariation} /
+     * {@code stringVariation} / {@code intVariation} / {@code doubleVariation} /
+     * {@code jsonVariation} / {@code *VariationDetail} call funnels through it — so
+     * registered inspectors are notified exactly once per variation call here, on
+     * every exit path (success, flag-not-found and error alike), with the value the
+     * caller actually receives.
      */
     <T> EvaluationDetail<T> evaluate(String key, EvaluationContext context, T defaultValue, Class<T> type) {
+        Outcome<T> outcome = evaluateInternal(key, context, defaultValue, type);
+        notifyInspectors(key, context, outcome);
+        return outcome.detail;
+    }
+
+    private <T> Outcome<T> evaluateInternal(String key, EvaluationContext context, T defaultValue,
+                                            Class<T> type) {
         try {
             if (testValues != null) {
                 Object value = testValues.get(key);
                 if (value == null) {
-                    return new EvaluationDetail<>(defaultValue, EvaluationReason.FLAG_NOT_FOUND, null, null);
+                    return Outcome.of(
+                        new EvaluationDetail<>(defaultValue, EvaluationReason.FLAG_NOT_FOUND, null, null));
                 }
                 @SuppressWarnings("unchecked")
                 T typedValue = (T) value;
-                return new EvaluationDetail<>(typedValue, EvaluationReason.FALLTHROUGH, null, null);
+                return Outcome.of(new EvaluationDetail<>(typedValue, EvaluationReason.FALLTHROUGH, null, null));
             }
 
             FlagConfiguration flag = store.getFlag(key);
             if (flag == null) {
-                return new EvaluationDetail<>(defaultValue, EvaluationReason.FLAG_NOT_FOUND, null,
-                    "Flag '" + key + "' not found");
+                return Outcome.of(new EvaluationDetail<>(defaultValue, EvaluationReason.FLAG_NOT_FOUND, null,
+                    "Flag '" + key + "' not found"));
             }
 
             FlagEvaluator.Result result = evaluator.evaluate(flag, context, store.getAllFlags());
             Variation variation = flag.getVariationByKey(result.getVariationKey());
 
             if (variation == null) {
-                return new EvaluationDetail<>(defaultValue, result.getReason(), result.getRuleId(),
-                    "Variation '" + result.getVariationKey() + "' not found",
-                    result.getVariationKey(), result.getPrerequisiteKey());
+                // Malformed config: the evaluator picked a variation key the flag does not
+                // define (e.g. a fallthrough/rule naming a since-deleted variation). The
+                // caller receives the fail-safe default with reason ERROR — mirroring the
+                // engine's ServeVariation + the C# SDK (#1989) — while the detail keeps the
+                // attempted variation key for diagnostics. Inspectors additionally see null
+                // variation/rule/prerequisite keys (see Outcome).
+                return Outcome.reportedAsError(
+                    new EvaluationDetail<>(defaultValue, EvaluationReason.ERROR, result.getRuleId(),
+                        "Variation '" + result.getVariationKey() + "' not found",
+                        result.getVariationKey(), result.getPrerequisiteKey()));
             }
 
             T value = deserializeValue(variation.getValue(), defaultValue, type);
-            return new EvaluationDetail<>(value, result.getReason(), result.getRuleId(), null,
-                result.getVariationKey(), result.getPrerequisiteKey());
+            return Outcome.of(new EvaluationDetail<>(value, result.getReason(), result.getRuleId(), null,
+                result.getVariationKey(), result.getPrerequisiteKey()));
         } catch (Exception e) {
             log.warn("Evaluation error for flag '{}': {}", key, e.getMessage());
-            return new EvaluationDetail<>(defaultValue, EvaluationReason.ERROR, null, e.getMessage());
+            return Outcome.of(new EvaluationDetail<>(defaultValue, EvaluationReason.ERROR, null, e.getMessage()));
+        }
+    }
+
+    /**
+     * One completed evaluation in its two views: the {@link EvaluationDetail} returned
+     * to the caller, and the reason/variation/rule/prerequisite reported to inspectors.
+     *
+     * <p>The two coincide on every exit path but one. When the evaluator picks a
+     * variation key the flag does not define (malformed config), the caller receives its
+     * own fail-safe default with reason {@link EvaluationReason#ERROR}, while the detail
+     * still carries the attempted variation key (and rule/prerequisite key) for
+     * diagnostics (#1989). The event drops those keys entirely: forwarding them would
+     * publish an event that reads like a healthy exposure of a variation that was never
+     * served — so inspectors are told {@link EvaluationReason#ERROR} with a null variation
+     * key, rule id and prerequisite key. This matches the event the C# SDK emits for the
+     * identical condition, and is consistent with {@link EvaluationEvent#getVariationKey()}'s
+     * documented contract that the variation key is null when evaluation errored.
+     */
+    private static final class Outcome<T> {
+        private final EvaluationDetail<T> detail;
+        private final EvaluationReason reportedReason;
+        private final String reportedVariationKey;
+        private final String reportedRuleId;
+        private final String reportedPrerequisiteKey;
+
+        private Outcome(EvaluationDetail<T> detail, EvaluationReason reportedReason, String reportedVariationKey,
+                        String reportedRuleId, String reportedPrerequisiteKey) {
+            this.detail = detail;
+            this.reportedReason = reportedReason;
+            this.reportedVariationKey = reportedVariationKey;
+            this.reportedRuleId = reportedRuleId;
+            this.reportedPrerequisiteKey = reportedPrerequisiteKey;
+        }
+
+        /** The ordinary case: inspectors observe exactly what the caller receives. */
+        static <T> Outcome<T> of(EvaluationDetail<T> detail) {
+            return new Outcome<>(detail, detail.getReason(), detail.getVariationKey(), detail.getRuleId(),
+                detail.getPrerequisiteKey());
+        }
+
+        /** Malformed config: the caller keeps the diagnostic detail, inspectors see an error. */
+        static <T> Outcome<T> reportedAsError(EvaluationDetail<T> detail) {
+            return new Outcome<>(detail, EvaluationReason.ERROR, null, null, null);
+        }
+    }
+
+    /**
+     * Notifies the registered evaluation inspectors of one completed evaluation.
+     *
+     * <p>Allocates nothing when no inspectors are registered — the common case, on
+     * the hottest path in the SDK. Nothing is reported once the core has shut down
+     * (the last client handle was closed): a closed client still returns a value to
+     * any caller racing the close, but publishing observability events out of a
+     * decommissioned client would be surprising, so the notification alone is
+     * suppressed — matching the other Featureflip server SDKs and {@link
+     * #trackEvaluation}.
+     *
+     * <p>Each inspector is isolated: a throwing inspector
+     * neither changes the value returned to the caller nor prevents the remaining
+     * inspectors from firing. {@link Throwable} is caught rather than
+     * {@link Exception} because user code most plausibly escapes via an unchecked
+     * {@code RuntimeException} or an {@code Error} (e.g. an assertion inside a test
+     * inspector), and neither may break evaluation.
+     */
+    private void notifyInspectors(String flagKey, EvaluationContext context, Outcome<?> outcome) {
+        if (inspectors.isEmpty() || isShutDown()) {
+            return;
+        }
+
+        EvaluationEvent event = new EvaluationEvent(
+            flagKey,
+            context != null ? context.copy() : null,
+            outcome.detail.getValue(),
+            outcome.reportedVariationKey,
+            outcome.reportedReason,
+            outcome.reportedRuleId,
+            outcome.reportedPrerequisiteKey,
+            Instant.now().toString());
+
+        for (EvaluationInspector inspector : inspectors) {
+            try {
+                inspector.onEvaluation(event);
+            } catch (Throwable t) {
+                log.warn("Evaluation inspector threw for flag '{}': {}", flagKey, t.toString());
+            }
         }
     }
 

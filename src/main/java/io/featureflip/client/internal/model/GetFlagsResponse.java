@@ -15,8 +15,16 @@ public final class GetFlagsResponse {
     public void setEnvironment(String environment) { this.environment = environment; }
     public int getVersion() { return version; }
     public void setVersion(int version) { this.version = version; }
+    // An explicit `"flags": null` / `"segments": null` payload makes Jackson call
+    // the setter with null, overriding the field initializer. Normalize here so no
+    // caller can observe a null collection — the server sends `[]`, but a null must
+    // degrade to an empty snapshot rather than throwing inside a refresh path.
     public List<FlagConfiguration> getFlags() { return flags; }
-    public void setFlags(List<FlagConfiguration> flags) { this.flags = flags; }
+    public void setFlags(List<FlagConfiguration> flags) {
+        this.flags = flags != null ? flags : new ArrayList<>();
+    }
     public List<Segment> getSegments() { return segments; }
-    public void setSegments(List<Segment> segments) { this.segments = segments; }
+    public void setSegments(List<Segment> segments) {
+        this.segments = segments != null ? segments : new ArrayList<>();
+    }
 }

@@ -1,5 +1,41 @@
 # Changelog
 
+## 2.4.0 — 2026-07-29
+
+### Added
+
+- **`onEvaluation` inspector callback.** `inspectors` config option registering in-process observers fired on every evaluation (#1914).
+
+### Fixed
+
+- A served variation key the flag does not define now reports reason `Error` with the caller's default, instead of a misleading success reason. The inspector event's `variationKey`/`ruleId`/`prerequisiteKey` are nulled on this path (#1989, #1987).
+- An explicit `"flags": null` in a response payload no longer hangs initialization. `GetFlagsResponse` normalizes in the setter, so the throw can no longer land after the store update but before the initialization signal — which left the client stuck in `waitForInitialization` and re-failing every poll (#1934).
+
+## 2.3.0 — 2026-07-13
+
+### Fixed
+
+- Outage-recovery hardening roll-up (#1896).
+- The connect-time `sync` snapshot is applied as a full store replace, so flags deleted during a disconnect are dropped (#1877).
+
+## 2.2.0 — 2026-06-19
+
+### Added
+
+- **Semantic-version condition operators** (`SemverEquals`, `SemverGreaterThan`, `SemverGreaterThanOrEqual`, `SemverLessThan`, `SemverLessThanOrEqual`) for local rule evaluation, comparing per semver precedence rather than as decimals (#1409).
+
+### Fixed
+
+- Per-flag rollout salt aligns bucketing with the engine and every other SDK; the previous `flagKey` fallback re-bucketed users (#1452).
+- Relational operators match against **any** supplied condition value (#1443).
+- `MatchesRegex` is case-sensitive, matching the engine (#1453).
+- Numeric operators return no-match on non-numeric operands instead of falling back to a lexical compare (#1456).
+- `Before`/`After` date operators aligned with the engine (#1455).
+- Type-aware numeric coercion for `Equals`/`In` (#1458).
+- Keyless rollouts serve the control variation deterministically (#1457).
+- Segment-keyed rules with no segment source fail closed (#1459).
+- Environment-level percentage rollouts with no variations no longer throw (#1469).
+
 ## 2.1.1 — 2026-06-03
 
 ### Changed

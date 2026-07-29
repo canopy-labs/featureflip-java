@@ -359,4 +359,48 @@ class SseDataSourceTest {
         assertThat(store.getFlag("flag-stale")).as("stale pre-outage flag dropped").isNull();
         assertThat(server.getRequestCount()).as("reconnected with no intervention").isGreaterThanOrEqualTo(2);
     }
+
+    private String loadSnapshotFixture() throws Exception {
+        try (var in = getClass().getResourceAsStream("/golden/snapshot.json")) {
+            assertThat(in).as("golden/snapshot.json must be on the test classpath").isNotNull();
+            return new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8).trim();
+        }
+    }
+
+    @Test
+    void syncAppliesLargeMultiFlagSnapshotFixture() throws Exception {
+        // Realism bump (#1935): feed the shared >64 KiB multi-flag `sync` fixture
+        // through handleSync and assert a full store REPLACE. OkHttp owns SSE
+        // framing; this exercises Jackson deserialization of a realistic snapshot
+        // + FlagStore.replace at size, not the wire parser.
+        String snapshot = loadSnapshotFixture();
+        assertThat(snapshot.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+            .as("fixture exceeds 64 KiB").isGreaterThan(64 * 1024);
+
+        // Pre-seed a stale flag the snapshot does NOT contain — must be dropped.
+        FlagConfiguration stale = new FlagConfiguration();
+        stale.setKey("flag-stale");
+        stale.setEnabled(true);
+        store.upsertFlag(stale);
+
+        server.enqueue(new MockResponse.Builder()
+            .addHeader("Content-Type", "text/event-stream")
+            .body(sseMessage("sync", snapshot))
+            .code(200)
+            .build());
+
+        SseDataSource sseDataSource = createDataSource();
+        sseDataSource.start();
+
+        Thread.sleep(1000);
+        sseDataSource.close();
+
+        assertThat(store.getFlag("sync-canary")).as("declared canary flag applied").isNotNull();
+        assertThat(store.getAllFlags().size()).as("all padding flags applied").isGreaterThan(800);
+        // Structural payload (not just flag keys) round-trips — a dropped segment
+        // would otherwise be swallowed by @JsonIgnoreProperties(ignoreUnknown).
+        assertThat(store.getSegment("snapshot-segment")).as("segment from snapshot applied").isNotNull();
+        assertThat(store.getFlag("flag-stale")).as("full replace drops absent flag").isNull();
+        assertThat(server.getRequestCount()).as("sync carries the payload — no refetch").isEqualTo(1);
+    }
 }
