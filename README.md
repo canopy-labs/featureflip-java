@@ -151,4 +151,4 @@ client.boolVariation("unknown", context, false);         // false (default)
 
 ## License
 
-MIT
+Apache-2.0

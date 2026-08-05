@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.1 — 2026-08-05
+
+### Fixed
+
+- The published POM's `<url>` points at featureflip.io instead of the GitHub mirror, so Maven Central and mvnrepository.com render a "Project URL" link to the project site. The Android SDK's POM already did this; the Java one was the odd artifact out. `<scm>` still points at the repo.
+
 ## 2.4.0 — 2026-07-29
 
 ### Added

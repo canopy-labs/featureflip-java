@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.featureflip"
-version = "2.4.0"
+version = "2.4.1"
 
 java {
     toolchain {
@@ -50,7 +50,11 @@ centralPortal {
     pom {
         name.set("Featureflip Java SDK")
         description.set("Java SDK for Featureflip - a feature flag SaaS platform")
-        url.set("https://github.com/canopy-labs/featureflip-java")
+        // Project homepage, not the source repo — that is what <scm> below is
+        // for. Maven Central renders this as the "Project URL" link, so
+        // pointing it at the repo cost us the one link the page offers.
+        // Matches the sibling android-sdk POM.
+        url.set("https://featureflip.io")
 
         licenses {
             license {
