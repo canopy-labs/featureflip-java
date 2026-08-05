@@ -1,10 +1,18 @@
 # Changelog
 
+## 2.4.2 — 2026-08-05
+
+### Fixed
+
+- The README's Gradle and Maven snippets pinned `2.0.0`, four minor versions behind. It is the copy mirrored to `canopy-labs/featureflip-java`, so that was the install line anyone reading the public repo got.
+
 ## 2.4.1 — 2026-08-05
 
 ### Fixed
 
 - The published POM's `<url>` points at featureflip.io instead of the GitHub mirror, so Maven Central and mvnrepository.com render a "Project URL" link to the project site. The Android SDK's POM already did this; the Java one was the odd artifact out. `<scm>` still points at the repo.
+- `LICENSE` is now the verbatim Apache-2.0 text. Three phrases in the operative sections had been reworded and the appendix dropped, which left automated license scanners unable to identify it. The license itself is unchanged; the file now says what it always claimed to.
+- The README's License section said MIT. `LICENSE`, the published POM and the Maven Central listing have always said Apache-2.0, which is the actual license.
 
 ## 2.4.0 — 2026-07-29
 
