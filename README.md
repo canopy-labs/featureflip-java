@@ -7,7 +7,7 @@ Java SDK for [Featureflip](https://featureflip.io) - evaluate feature flags loca
 ### Gradle
 
 ```groovy
-implementation 'io.featureflip:featureflip-java:2.4.2'
+implementation 'io.featureflip:featureflip-java:2.5.0'
 ```
 
 ### Maven
@@ -16,7 +16,7 @@ implementation 'io.featureflip:featureflip-java:2.4.2'
 <dependency>
     <groupId>io.featureflip</groupId>
     <artifactId>featureflip-java</artifactId>
-    <version>2.4.2</version>
+    <version>2.5.0</version>
 </dependency>
 ```
 

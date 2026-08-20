@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.featureflip"
-version = "2.4.2"
+version = "2.5.0"
 
 java {
     toolchain {

@@ -1040,5 +1040,609 @@
         }
       }
     }
+  ],
+  "coreContractVectors": [
+    {
+      "id": "cc-string-as-number",
+      "description": "String flag read through a number accessor -\u003E caller default \u002B Error (#2281)",
+      "kind": "typeMismatch",
+      "flags": [
+        {
+          "key": "str-flag",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "numeric-looking",
+              "value": "42"
+            },
+            {
+              "key": "other",
+              "value": "other"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "numeric-looking"
+          },
+          "offVariation": "numeric-looking",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "str-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "number",
+        "default": -1
+      },
+      "expect": {
+        "value": -1,
+        "reason": "Error"
+      }
+    },
+    {
+      "id": "cc-string-as-int",
+      "description": "String flag read through an int accessor -\u003E caller default \u002B Error (#2281)",
+      "kind": "typeMismatch",
+      "flags": [
+        {
+          "key": "str-flag",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "numeric-looking",
+              "value": "42"
+            },
+            {
+              "key": "other",
+              "value": "other"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "numeric-looking"
+          },
+          "offVariation": "numeric-looking",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "str-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "int",
+        "default": -1
+      },
+      "expect": {
+        "value": -1,
+        "reason": "Error"
+      }
+    },
+    {
+      "id": "cc-string-as-bool",
+      "description": "String flag read through a bool accessor -\u003E caller default \u002B Error (#2281)",
+      "kind": "typeMismatch",
+      "flags": [
+        {
+          "key": "str-flag",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "numeric-looking",
+              "value": "42"
+            },
+            {
+              "key": "other",
+              "value": "other"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "numeric-looking"
+          },
+          "offVariation": "numeric-looking",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "str-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "bool",
+        "default": true
+      },
+      "expect": {
+        "value": true,
+        "reason": "Error"
+      }
+    },
+    {
+      "id": "cc-number-as-string",
+      "description": "Number flag read through a string accessor -\u003E caller default \u002B Error (#2281)",
+      "kind": "typeMismatch",
+      "flags": [
+        {
+          "key": "num-flag",
+          "version": 1,
+          "type": "Number",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "whole",
+              "value": 42
+            },
+            {
+              "key": "other",
+              "value": 7
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "whole"
+          },
+          "offVariation": "whole",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "num-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "string",
+        "default": "DEF"
+      },
+      "expect": {
+        "value": "DEF",
+        "reason": "Error"
+      }
+    },
+    {
+      "id": "cc-bool-as-string",
+      "description": "Boolean flag read through a string accessor -\u003E caller default \u002B Error (#2281)",
+      "kind": "typeMismatch",
+      "flags": [
+        {
+          "key": "bool-flag",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "on",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "bool-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "string",
+        "default": "DEF"
+      },
+      "expect": {
+        "value": "DEF",
+        "reason": "Error"
+      }
+    },
+    {
+      "id": "cc-bool-as-number",
+      "description": "Boolean flag read through a number accessor -\u003E caller default \u002B Error; the coerced 0 was the dangerous case (#2281)",
+      "kind": "typeMismatch",
+      "flags": [
+        {
+          "key": "bool-flag",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "on",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "bool-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "number",
+        "default": -1
+      },
+      "expect": {
+        "value": -1,
+        "reason": "Error"
+      }
+    },
+    {
+      "id": "cc-fractional-as-int",
+      "description": "Fractional number read through an int accessor -\u003E caller default \u002B Error, never a silent truncation to 42 (#2281)",
+      "kind": "typeMismatch",
+      "flags": [
+        {
+          "key": "frac-flag",
+          "version": 1,
+          "type": "Number",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "fractional",
+              "value": 42.5
+            },
+            {
+              "key": "other",
+              "value": 7
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "fractional"
+          },
+          "offVariation": "fractional",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "frac-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "int",
+        "default": -1
+      },
+      "expect": {
+        "value": -1,
+        "reason": "Error"
+      }
+    },
+    {
+      "id": "cc-json-null-as-string",
+      "description": "A variation whose value is JSON null satisfies no typed read -\u003E caller default \u002B Error (#2281)",
+      "kind": "typeMismatch",
+      "flags": [
+        {
+          "key": "null-flag",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "nullish",
+              "value": null
+            },
+            {
+              "key": "other",
+              "value": "other"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "nullish"
+          },
+          "offVariation": "nullish",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "null-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "string",
+        "default": "DEF"
+      },
+      "expect": {
+        "value": "DEF",
+        "reason": "Error"
+      }
+    },
+    {
+      "id": "cc-string-as-string",
+      "description": "Matching read serves the value, and the numeric-looking string stays a string (#2284)",
+      "kind": "match",
+      "flags": [
+        {
+          "key": "str-flag",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "numeric-looking",
+              "value": "42"
+            },
+            {
+              "key": "other",
+              "value": "other"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "numeric-looking"
+          },
+          "offVariation": "numeric-looking",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "str-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "string",
+        "default": "DEF"
+      },
+      "expect": {
+        "value": "42",
+        "reason": "Fallthrough"
+      }
+    },
+    {
+      "id": "cc-number-as-number",
+      "description": "Matching read serves the number",
+      "kind": "match",
+      "flags": [
+        {
+          "key": "num-flag",
+          "version": 1,
+          "type": "Number",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "whole",
+              "value": 42
+            },
+            {
+              "key": "other",
+              "value": 7
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "whole"
+          },
+          "offVariation": "whole",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "num-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "number",
+        "default": -1
+      },
+      "expect": {
+        "value": 42,
+        "reason": "Fallthrough"
+      }
+    },
+    {
+      "id": "cc-whole-number-as-double",
+      "description": "A whole JSON number satisfies a double read, matching C#\u0027s GetDouble()",
+      "kind": "match",
+      "flags": [
+        {
+          "key": "num-flag",
+          "version": 1,
+          "type": "Number",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "whole",
+              "value": 42
+            },
+            {
+              "key": "other",
+              "value": 7
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "whole"
+          },
+          "offVariation": "whole",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "num-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "double",
+        "default": -1.0
+      },
+      "expect": {
+        "value": 42,
+        "reason": "Fallthrough"
+      }
+    },
+    {
+      "id": "cc-bool-as-bool",
+      "description": "Matching read serves the boolean",
+      "kind": "match",
+      "flags": [
+        {
+          "key": "bool-flag",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "on",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "bool-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "bool",
+        "default": true
+      },
+      "expect": {
+        "value": false,
+        "reason": "Fallthrough"
+      }
+    },
+    {
+      "id": "cc-malformed-variation",
+      "description": "Fallthrough names a variation the flag does not define -\u003E caller default \u002B Error (#1989)",
+      "kind": "malformed",
+      "flags": [
+        {
+          "key": "ghost-flag",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "ghost"
+          },
+          "offVariation": "on",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "ghost-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "bool",
+        "default": false
+      },
+      "expect": {
+        "value": false,
+        "reason": "Error"
+      }
+    },
+    {
+      "id": "cc-flag-not-found",
+      "description": "Unknown flag key -\u003E caller default \u002B FlagNotFound",
+      "kind": "notFound",
+      "flags": [
+        {
+          "key": "str-flag",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "numeric-looking",
+              "value": "42"
+            },
+            {
+              "key": "other",
+              "value": "other"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "numeric-looking"
+          },
+          "offVariation": "numeric-looking",
+          "prerequisites": []
+        }
+      ],
+      "flagKey": "missing-flag",
+      "context": {
+        "userId": "u",
+        "attributes": {}
+      },
+      "read": {
+        "as": "string",
+        "default": "DEF"
+      },
+      "expect": {
+        "value": "DEF",
+        "reason": "FlagNotFound"
+      }
+    }
   ]
 }

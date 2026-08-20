@@ -146,6 +146,9 @@ public final class FeatureflipClient implements AutoCloseable {
     }
 
     public boolean isInitialized() {
+        if (closed.get()) {
+            return false;
+        }
         return core.isInitialized();
     }
 
@@ -192,10 +195,16 @@ public final class FeatureflipClient implements AutoCloseable {
     // --- Event Tracking ---
 
     public void track(String eventName, EvaluationContext context, Map<String, Object> metadata) {
+        if (closed.get()) {
+            return;
+        }
         core.track(eventName, context, metadata);
     }
 
     public void flush() {
+        if (closed.get()) {
+            return;
+        }
         core.flush();
     }
 
@@ -208,6 +217,15 @@ public final class FeatureflipClient implements AutoCloseable {
     // --- Internal ---
 
     private <T> EvaluationDetail<T> evaluate(String key, EvaluationContext context, T defaultValue, Class<T> type) {
+        // A closed handle serves the caller's default (#2282). close() releases the
+        // core — stopping streaming/polling and shutting down the event processor —
+        // but the in-memory store stays readable, so without this guard the handle
+        // would keep serving a frozen snapshot that can never update again. Guarding
+        // the single choke point covers every typed and detail accessor, and also
+        // suppresses the evaluation event a closed client must not emit.
+        if (closed.get()) {
+            return new EvaluationDetail<>(defaultValue, EvaluationReason.ERROR, null, "Client is closed");
+        }
         EvaluationDetail<T> detail = core.evaluate(key, context, defaultValue, type);
         if (detail.getVariationKey() != null) {
             core.trackEvaluation(key, context, detail.getVariationKey());

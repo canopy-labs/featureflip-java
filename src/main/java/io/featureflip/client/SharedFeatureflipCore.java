@@ -360,7 +360,21 @@ final class SharedFeatureflipCore {
                         result.getVariationKey(), result.getPrerequisiteKey()));
             }
 
-            T value = deserializeValue(variation.getValue(), defaultValue, type);
+            T value;
+            try {
+                value = deserializeValue(variation.getValue(), type);
+            } catch (TypeMismatchException e) {
+                // The config is healthy here — the caller simply asked for a type the
+                // served value isn't. They get their own fail-safe default with reason
+                // ERROR so the mismatch is detectable, while the returned detail keeps
+                // the variation key for diagnostics. Inspectors see ERROR with null
+                // variation/rule/prerequisite keys, honouring EvaluationEvent's contract
+                // that those are null when evaluation errored (same shape as #1989).
+                log.warn("Type mismatch reading flag '{}': {}", key, e.getMessage());
+                return Outcome.reportedAsError(
+                    new EvaluationDetail<>(defaultValue, EvaluationReason.ERROR, result.getRuleId(),
+                        e.getMessage(), result.getVariationKey(), result.getPrerequisiteKey()));
+            }
             return Outcome.of(new EvaluationDetail<>(value, result.getReason(), result.getRuleId(), null,
                 result.getVariationKey(), result.getPrerequisiteKey()));
         } catch (Exception e) {
@@ -454,14 +468,27 @@ final class SharedFeatureflipCore {
         }
     }
 
-    /** Tracks an evaluation event into the event processor queue. */
+    /**
+     * Tracks an evaluation event into the event processor queue.
+     *
+     * <p>The context is optional. A null one is a legitimate "no user" evaluation —
+     * the evaluator serves the fallthrough for it and {@link #notifyInspectors}
+     * already guards it — so it must not be able to fail a flag read here. This
+     * runs <em>after</em> {@code evaluate} has computed the caller's answer, outside
+     * the try/catch that converts evaluation failures into the caller's default, so
+     * dereferencing a null context threw a bare NPE out of a call that had already
+     * succeeded (#2280). The event is still recorded, just unattributed: {@code
+     * SdkEvent} serializes NON_NULL, so a null user id is omitted, and the eval-api's
+     * {@code SdkEventDto.UserId} is nullable. That matches the Go SDK, whose
+     * value-typed context yields an empty user id for the same case.
+     */
     void trackEvaluation(String key, EvaluationContext context, String variationKey) {
         if (isShutDown() || eventProcessor == null) return;
 
         SdkEvent event = new SdkEvent();
         event.setType(SdkEventType.EVALUATION);
         event.setFlagKey(key);
-        event.setUserId(context.getUserId());
+        event.setUserId(context != null ? context.getUserId() : null);
         event.setVariation(variationKey);
         event.setTimestamp(Instant.now());
         eventProcessor.enqueue(event);
@@ -479,12 +506,13 @@ final class SharedFeatureflipCore {
         flushEvents();
     }
 
+    /** Tracks a custom event. The context is optional — see {@link #trackEvaluation}. */
     void track(String eventName, EvaluationContext context, Map<String, Object> metadata) {
         if (testValues != null || eventProcessor == null) return;
         SdkEvent event = new SdkEvent();
         event.setType(SdkEventType.CUSTOM);
         event.setFlagKey(eventName);
-        event.setUserId(context.getUserId());
+        event.setUserId(context != null ? context.getUserId() : null);
         event.setTimestamp(Instant.now());
         if (metadata != null && !metadata.isEmpty() && httpClient != null) {
             try {
@@ -506,18 +534,62 @@ final class SharedFeatureflipCore {
     // Private helpers
     // -------------------------------------------------------------------------
 
+    /**
+     * Converts a served variation value to the type the caller asked for, strictly.
+     *
+     * <p>Jackson's {@code asText()}/{@code asInt()}/{@code asBoolean()} family coerces
+     * across JSON types and never throws, so a boolean flag read through
+     * {@code intVariation} yielded {@code 0} — a plausible-looking wrong number that
+     * flows straight into caller logic — instead of the caller's default. These checks
+     * mirror the C# SDK's strict {@code JsonElement} accessors so a mismatch surfaces
+     * rather than being papered over (#2281).
+     *
+     * @throws TypeMismatchException if the served value is not of the requested type
+     */
     @SuppressWarnings("unchecked")
-    private <T> T deserializeValue(JsonNode node, T defaultValue, Class<T> type) {
+    private <T> T deserializeValue(JsonNode node, Class<T> type) {
+        if (node == null) {
+            throw new TypeMismatchException("variation has no value");
+        }
+        if (type == Boolean.class || type == boolean.class) {
+            if (!node.isBoolean()) throw new TypeMismatchException(describeMismatch(node, "boolean"));
+            return (T) Boolean.valueOf(node.booleanValue());
+        }
+        if (type == String.class) {
+            if (!node.isTextual()) throw new TypeMismatchException(describeMismatch(node, "string"));
+            return (T) node.textValue();
+        }
+        if (type == Integer.class || type == int.class) {
+            // isIntegralNumber() rejects 42.5 the way C#'s GetInt32() does rather than
+            // truncating it; canConvertToInt() additionally rejects out-of-range longs.
+            if (!node.isIntegralNumber() || !node.canConvertToInt()) {
+                throw new TypeMismatchException(describeMismatch(node, "int"));
+            }
+            return (T) Integer.valueOf(node.intValue());
+        }
+        if (type == Double.class || type == double.class) {
+            // Any JSON number satisfies a double read, matching C#'s GetDouble().
+            if (!node.isNumber()) throw new TypeMismatchException(describeMismatch(node, "double"));
+            return (T) Double.valueOf(node.doubleValue());
+        }
         try {
-            if (node == null) return defaultValue;
-            if (type == Boolean.class || type == boolean.class) return (T) Boolean.valueOf(node.asBoolean());
-            if (type == String.class) return (T) node.asText();
-            if (type == Integer.class || type == int.class) return (T) Integer.valueOf(node.asInt());
-            if (type == Double.class || type == double.class) return (T) Double.valueOf(node.asDouble());
             return OBJECT_MAPPER.treeToValue(node, type);
         } catch (Exception e) {
-            log.warn("Failed to deserialize value: {}", e.getMessage());
-            return defaultValue;
+            throw new TypeMismatchException(
+                "value is not convertible to " + type.getSimpleName() + ": " + e.getMessage());
+        }
+    }
+
+    private static String describeMismatch(JsonNode node, String requested) {
+        return "value of JSON type " + node.getNodeType() + " cannot be read as " + requested;
+    }
+
+    /** Signals that a served variation value is not of the type the caller requested. */
+    private static final class TypeMismatchException extends RuntimeException {
+        private static final long serialVersionUID = 1L;
+
+        TypeMismatchException(String message) {
+            super(message);
         }
     }
 

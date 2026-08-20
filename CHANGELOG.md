@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.5.0 — 2026-08-20
+
+### Fixed
+
+- A closed handle serves the caller's default from every accessor and reports not-initialized. `close()` releases the shared core — stopping streaming and polling, shutting down the event processor — but the in-memory store stayed readable, so a closed client kept evaluating against a frozen snapshot that could never update again while still reporting itself initialized. ([#2282](https://github.com/canopy-labs/featureflip/issues/2282))
+
+- A null `EvaluationContext` no longer throws an unguarded `NullPointerException` out of a *successful* evaluation. The analytics hop runs after the value has been computed and outside the try/catch that converts evaluation failures into the caller's default, so `boolVariation("existing-flag", null, true)` raised an NPE while the same call against a missing flag returned cleanly. A null context is now treated as an anonymous evaluation: the event is still recorded, with the user id omitted. `track()` accepts a null context on the same terms. ([#2280](https://github.com/canopy-labs/featureflip/issues/2280))
+
+### Changed
+
+- A type-mismatched read returns the caller's default and reports `EvaluationReason.ERROR`, instead of coercing it — Jackson's lenient `asText()`/`asInt()`/`asBoolean()` never throw, so a boolean flag read through `intVariation` returned `0`, a plausible-looking wrong number. Reading a String flag through a number accessor, say, is now detectable rather than silent. Matching reads and the generic/JSON accessors are unchanged. ([#2281](https://github.com/canopy-labs/featureflip/issues/2281))
+
+- Enum fields on the wire are now required to be strings. Jackson resolves an integer into an enum by **ordinal**, bypassing the `@JsonProperty` names on the constants — so the SDK decoded integer enums correctly only because its declaration order happened to match the server's, and a value inserted into the middle of a server-side enum would have silently shifted every later value here to the wrong one. `FAIL_ON_NUMBERS_FOR_ENUMS` makes that a visible error instead. ([#2283](https://github.com/canopy-labs/featureflip/issues/2283))
+
+  This requires the evaluation API's matching SSE enum fix ([#2279](https://github.com/canopy-labs/featureflip/issues/2279)), which the hosted evaluation API carries as of this release. An evaluation API older than that sends integer enums over SSE, which this version rejects — every `sync` frame is refused and reconnect resync stops working, the opposite of what the change is for.
+
 ## 2.4.2 — 2026-08-05
 
 ### Fixed

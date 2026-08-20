@@ -32,6 +32,15 @@ public final class FlagHttpClient {
         this.objectMapper = new ObjectMapper()
             .registerModule(new JavaTimeModule())
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            // Enums must arrive as strings ("Boolean", "Fixed", "And"). Jackson would
+            // otherwise accept an integer and resolve it by ORDINAL, silently bypassing
+            // the @JsonProperty names on the constants — so a value inserted into the
+            // middle of the corresponding .NET enum would shift every later value here
+            // to the wrong one, with no exception and no log line. Nothing links the two
+            // declaration orders, so that drift would be invisible at both edit sites.
+            // Failing loudly turns a silent-wrong into a visible error (#2283; #2279 is
+            // the server bug that made integer enums reach SDKs at all).
+            .configure(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS, true)
             .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
 
         this.httpClient = new OkHttpClient.Builder()

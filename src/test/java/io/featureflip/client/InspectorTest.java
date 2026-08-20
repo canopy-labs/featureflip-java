@@ -304,8 +304,14 @@ class InspectorTest {
 
         client.close();
 
-        // The value the caller gets is unchanged by closing.
-        assertTrue(client.boolVariation("my-flag", CONTEXT, false));
+        // A closed handle serves the caller's default (#2282). This previously
+        // asserted the opposite — "the value the caller gets is unchanged by
+        // closing" — which pinned Java's own behaviour rather than a cross-SDK
+        // contract: Python and PHP have always degraded to the default here,
+        // because the core is shut down and the store it would read can never
+        // update again. The assertion this test exists for is the event count,
+        // which is unchanged.
+        assertFalse(client.boolVariation("my-flag", CONTEXT, false));
         assertEquals(1, events.size());
     }
 
