@@ -272,6 +272,37 @@ class FlagEvaluatorTest {
         assertThat(result).as("Operator %s: %s vs %s", op, value, targets).isEqualTo(expected);
     }
 
+    // Issue #2262: an operator that cannot be evaluated means "I cannot evaluate this",
+    // NOT "this did not match". Inverting that inability with negate would turn it into a
+    // match-everyone, serving the flag to 100% of traffic.
+    //
+    // Java's enum typing means an *unknown* operator cannot exist as a constant — Jackson
+    // raises InvalidFormatException before the evaluator sees it — so the reachable shape
+    // here is a null operator from a config that omits the field. Before this fix the
+    // switch threw NPE on it; now it fails closed, matching the string-typed SDKs
+    // (js/go/ruby/php) where an unrecognised operator IS reachable over the wire.
+    @Test
+    void nullOperatorIsNotEvaluable() {
+        assertThat(evaluator.evaluateOperator(null, "US", List.of("US"))).isNull();
+    }
+
+    @Test
+    void conditionWithNullOperatorFailsClosedRegardlessOfNegate() {
+        for (boolean negate : new boolean[] { false, true }) {
+            Condition cond = new Condition();
+            cond.setAttribute("country");
+            cond.setOperator(null);
+            cond.setValues(List.of("US"));
+            cond.setNegate(negate);
+
+            EvaluationContext ctx = EvaluationContext.builder("user-1").set("country", "US").build();
+
+            assertThat(evaluator.evaluateCondition(cond, ctx))
+                .as("null operator with negate=%s must fail closed", negate)
+                .isFalse();
+        }
+    }
+
     @Test
     void equalsOperatorCaseInsensitive() {
         assertOperator(ConditionOperator.EQUALS, "hello", List.of("Hello"), true);

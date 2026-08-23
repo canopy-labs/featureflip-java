@@ -1,11 +1,15 @@
 package io.featureflip.client.internal;
 
+import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.deser.DeserializationProblemHandler;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.featureflip.client.FeatureFlagConfig;
+import io.featureflip.client.internal.model.ConditionOperator;
 import io.featureflip.client.internal.model.FlagConfiguration;
+import io.featureflip.client.internal.model.FlagType;
 import io.featureflip.client.internal.model.GetFlagsResponse;
 import io.featureflip.client.internal.model.SdkEvent;
 import okhttp3.*;
@@ -19,6 +23,59 @@ import java.util.concurrent.TimeUnit;
 
 public final class FlagHttpClient {
     private static final Logger log = LoggerFactory.getLogger(FlagHttpClient.class);
+
+    /**
+     * Tolerates a {@link ConditionOperator} name this SDK build does not know, mapping it
+     * to {@code null} instead of throwing (#2372).
+     *
+     * <p>Jackson raises {@code InvalidFormatException} on an unknown enum name, and because
+     * that surfaces while reading the whole flags payload, ONE unrecognised operator in ONE
+     * condition of ONE flag failed the ENTIRE fetch — every flag fell back to the caller's
+     * defaults, not just the flag carrying it. The trigger is ordinary: a new operator
+     * shipped server-side reaching an SDK pinned to an older version.
+     *
+     * <p>{@code null} is safe because {@code FlagEvaluator} fails a null operator CLOSED
+     * (#2262) — the condition simply does not match, and {@code negate} never inverts it
+     * into a match-everyone.
+     *
+     * <p>{@code FlagType} is tolerated for a different and stronger reason (#2395): nothing
+     * evaluates it. It is parsed, stored on {@code FlagConfiguration}, and never read —
+     * go, ruby and php do not model the field at all. Rejecting an unrecognised flag type
+     * therefore failed the entire fetch over a field no evaluation logic consults, so the
+     * day a new flag type ships server-side every pinned SDK stops serving EVERY flag. A
+     * null type has no downstream consumer that could mis-serve on it, and equally none
+     * that could warn about it, which is why the diagnostic is emitted here.
+     *
+     * <p>Still deliberately scoped, rather than enabling {@code READ_UNKNOWN_ENUM_VALUES_AS_NULL}
+     * globally: that would also null out {@code ServeType} and {@code ConditionLogic}, which
+     * ARE consulted and whose dispatch is a two-way branch — a null {@code ServeType} falls
+     * to the rollout arm and a null {@code ConditionLogic} to OR semantics, turning a loud
+     * failure into silent-wrong targeting. Those two stay loud via {@code NOT_HANDLED} until
+     * they get the entity-drop treatment they actually need (follow-up to #2395).
+     *
+     * <p>Both branches tolerate an unknown NAME only. An integer is a TYPE violation on a
+     * different axis and is still rejected by {@code FAIL_ON_NUMBERS_FOR_ENUMS} above —
+     * {@code handleWeirdStringValue} is never reached for a numeric token (#2283/#2315).
+     */
+    private static final DeserializationProblemHandler UNKNOWN_ENUM_NAME_HANDLER =
+        new DeserializationProblemHandler() {
+            @Override
+            public Object handleWeirdStringValue(DeserializationContext ctxt, Class<?> targetType,
+                                                 String valueToConvert, String failureMsg) {
+                if (targetType == ConditionOperator.class) {
+                    log.warn("Unrecognised condition operator '{}' - condition will not match. "
+                        + "This SDK version may be older than the flag configuration.", valueToConvert);
+                    return null;
+                }
+                if (targetType == FlagType.class) {
+                    log.warn("Unrecognised flag type '{}' - the flag is still served; nothing "
+                        + "evaluates this field. This SDK version may be older than the flag "
+                        + "configuration.", valueToConvert);
+                    return null;
+                }
+                return NOT_HANDLED;
+            }
+        };
     private static final MediaType JSON_MEDIA = MediaType.get("application/json; charset=utf-8");
 
     private final OkHttpClient httpClient;
@@ -41,7 +98,8 @@ public final class FlagHttpClient {
             // Failing loudly turns a silent-wrong into a visible error (#2283; #2279 is
             // the server bug that made integer enums reach SDKs at all).
             .configure(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS, true)
-            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+            .addHandler(UNKNOWN_ENUM_NAME_HANDLER);
 
         this.httpClient = new OkHttpClient.Builder()
             .connectTimeout(config.getConnectTimeout().toMillis(), TimeUnit.MILLISECONDS)

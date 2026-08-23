@@ -387,4 +387,90 @@ class FeatureflipClientTest {
         assertThatCode(() -> client.track("checkout-completed", null, Map.of("amount", 42)))
             .doesNotThrowAnyException();
     }
+
+    /**
+     * Java modelled {@code SdkEventType.IDENTIFY} but never exposed a method that
+     * emits it, leaving it the only server SDK with the enum and no way to reach
+     * it. The payload must match the others: the id at the top level, the
+     * caller's attributes as metadata (#2359).
+     */
+    @Test
+    void identifyEmitsAnIdentifyEventCarryingTheCallersAttributes() throws Exception {
+        server = new MockWebServer();
+        server.enqueue(new MockResponse.Builder()
+            .body(flagsJson(true))
+            .addHeader("Content-Type", "application/json")
+            .build());
+        server.enqueue(new MockResponse.Builder().code(202).build());
+        server.start();
+
+        client = FeatureflipClient.builder("test-sdk-key")
+            .baseUrl(server.url("/").toString())
+            .streaming(false)
+            .pollInterval(Duration.ofHours(1))
+            .build();
+        client.waitForInitialization();
+
+        client.identify(EvaluationContext.builder("user-1").set("plan", "pro").build());
+        client.flush();
+
+        server.takeRequest(2, TimeUnit.SECONDS); // GET /v1/sdk/flags
+        RecordedRequest eventsRequest = server.takeRequest(2, TimeUnit.SECONDS);
+        assertThat(eventsRequest).isNotNull();
+        assertThat(eventsRequest.getUrl().encodedPath()).isEqualTo("/v1/sdk/events");
+
+        String body = eventsRequest.getBody().utf8();
+        assertThat(body).contains("\"type\":\"Identify\"");
+        assertThat(body).contains("\"flagKey\":\"$identify\"");
+        assertThat(body).contains("\"userId\":\"user-1\"");
+        assertThat(body).contains("\"plan\":\"pro\"");
+    }
+
+    @Test
+    void identifyOmitsMetadataWhenTheContextCarriesNoAttributes() throws Exception {
+        server = new MockWebServer();
+        server.enqueue(new MockResponse.Builder()
+            .body(flagsJson(true))
+            .addHeader("Content-Type", "application/json")
+            .build());
+        server.enqueue(new MockResponse.Builder().code(202).build());
+        server.start();
+
+        client = FeatureflipClient.builder("test-sdk-key")
+            .baseUrl(server.url("/").toString())
+            .streaming(false)
+            .pollInterval(Duration.ofHours(1))
+            .build();
+        client.waitForInitialization();
+
+        client.identify(EvaluationContext.builder("user-1").build());
+        client.flush();
+
+        server.takeRequest(2, TimeUnit.SECONDS);
+        RecordedRequest eventsRequest = server.takeRequest(2, TimeUnit.SECONDS);
+        assertThat(eventsRequest).isNotNull();
+
+        String body = eventsRequest.getBody().utf8();
+        assertThat(body).contains("\"type\":\"Identify\"");
+        assertThat(body).doesNotContain("\"metadata\"");
+    }
+
+    @Test
+    void identifyWithNullContextDoesNotThrow() throws Exception {
+        server = new MockWebServer();
+        server.enqueue(new MockResponse.Builder()
+            .body(flagsJson(true))
+            .addHeader("Content-Type", "application/json")
+            .build());
+        server.start();
+
+        client = FeatureflipClient.builder("test-sdk-key")
+            .baseUrl(server.url("/").toString())
+            .streaming(false)
+            .pollInterval(Duration.ofHours(1))
+            .build();
+        client.waitForInitialization();
+
+        assertThatCode(() -> client.identify(null)).doesNotThrowAnyException();
+    }
 }

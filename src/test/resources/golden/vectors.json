@@ -1644,5 +1644,415 @@
         "reason": "FlagNotFound"
       }
     }
-  ]
+  ],
+  "unknownOperatorVectors": [
+    {
+      "id": "uo-unknown-plain",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "SomeFutureOperator",
+      "values": [
+        "US"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "uo-unknown-negated",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "SomeFutureOperator",
+      "values": [
+        "US"
+      ],
+      "negate": true,
+      "expectedMatch": false
+    },
+    {
+      "id": "uo-empty-operator-negated",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "",
+      "values": [
+        "US"
+      ],
+      "negate": true,
+      "expectedMatch": false
+    },
+    {
+      "id": "uo-unknown-numeric-attr-negated",
+      "attribute": {
+        "type": "number",
+        "value": 42.0
+      },
+      "operator": "SomeFutureOperator",
+      "values": [
+        "42"
+      ],
+      "negate": true,
+      "expectedMatch": false
+    }
+  ],
+  "malformedConfigVectors": {
+    "seed": {
+      "environment": "test",
+      "version": 1,
+      "flags": [
+        {
+          "key": "mc-seed",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "on"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        }
+      ],
+      "segments": [
+        {
+          "key": "mc-seed-segment",
+          "version": 1,
+          "conditions": [
+            {
+              "attribute": "plan",
+              "operator": "Equals",
+              "values": [
+                "pro"
+              ],
+              "negate": false
+            }
+          ],
+          "conditionLogic": "And"
+        }
+      ]
+    },
+    "vectors": [
+      {
+        "id": "mc-integer-flag-type",
+        "description": "flag.type arrives as 0 instead of \u0022Boolean\u0022 (the #2279 shape) -\u003E reject wholesale",
+        "kind": "typeViolation",
+        "expect": "reject",
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-bad-type",
+              "version": 1,
+              "type": 0,
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            }
+          ],
+          "segments": []
+        }
+      },
+      {
+        "id": "mc-integer-serve-type",
+        "description": "flag.fallthrough.type arrives as 0 instead of \u0022Fixed\u0022 -\u003E reject wholesale",
+        "kind": "typeViolation",
+        "expect": "reject",
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-bad-serve",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": 0,
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            }
+          ],
+          "segments": []
+        }
+      },
+      {
+        "id": "mc-integer-condition-logic",
+        "description": "segment.conditionLogic arrives as 0 instead of \u0022And\u0022 -\u003E reject wholesale. Ordinal 0 is And and 1 is Or, so silently accepting flips a segment between matching ALL of its conditions and ANY of them",
+        "kind": "typeViolation",
+        "expect": "reject",
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [],
+          "segments": [
+            {
+              "key": "mc-bad-logic",
+              "version": 1,
+              "conditions": [
+                {
+                  "attribute": "plan",
+                  "operator": "Equals",
+                  "values": [
+                    "pro"
+                  ],
+                  "negate": false
+                }
+              ],
+              "conditionLogic": 0
+            }
+          ]
+        }
+      },
+      {
+        "id": "mc-integer-condition-operator",
+        "description": "segment.conditions[].operator arrives as 0 instead of \u0022Equals\u0022 -\u003E reject wholesale",
+        "kind": "typeViolation",
+        "expect": "reject",
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [],
+          "segments": [
+            {
+              "key": "mc-bad-op",
+              "version": 1,
+              "conditions": [
+                {
+                  "attribute": "plan",
+                  "operator": 0,
+                  "values": [
+                    "pro"
+                  ],
+                  "negate": false
+                }
+              ],
+              "conditionLogic": "And"
+            }
+          ]
+        }
+      },
+      {
+        "id": "mc-integer-group-operator",
+        "description": "rule.conditionGroups[].operator arrives as 0 instead of \u0022And\u0022 -\u003E reject wholesale",
+        "kind": "typeViolation",
+        "expect": "reject",
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-bad-rule",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [
+                {
+                  "id": "r1",
+                  "priority": 1,
+                  "conditionGroups": [
+                    {
+                      "operator": 0,
+                      "conditions": []
+                    }
+                  ],
+                  "serve": {
+                    "type": "Fixed",
+                    "variation": "on"
+                  }
+                }
+              ],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            }
+          ],
+          "segments": []
+        }
+      },
+      {
+        "id": "mc-unknown-operator-string",
+        "description": "An UNRECOGNISED condition operator NAME is accepted, not rejected: that is how a newer server ships a new operator, and the evaluator fails it closed (#2262/#2372). Carries a flag as well as the segment: php\u0027s last-known-good guard keys off an empty flag list",
+        "kind": "forwardCompatible",
+        "expect": "accept",
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-accepted-flag",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            }
+          ],
+          "segments": [
+            {
+              "key": "mc-accepted",
+              "version": 1,
+              "conditions": [
+                {
+                  "attribute": "plan",
+                  "operator": "SomeFutureOperator",
+                  "values": [
+                    "pro"
+                  ],
+                  "negate": false
+                }
+              ],
+              "conditionLogic": "And"
+            }
+          ]
+        }
+      },
+      {
+        "id": "mc-unknown-flag-type-string",
+        "description": "An UNRECOGNISED flag type NAME is accepted, not rejected (#2395). Same forward-compatibility rule as the operator above, but on stronger ground: NOTHING evaluates flag.type. It is parsed, stored and never read, and go/ruby/php do not model the field at all -- so rejecting it failed the ENTIRE fetch over a field no evaluator consults, and the day a new flag type ships every pinned SDK would stop serving EVERY flag. The unknown type sits on the accepted flag itself, so asserting the flag is present proves it was RETAINED, not merely that the payload parsed. Deliberately not extended to serve.type or conditionLogic: those ARE consulted, and each dispatches on a two-way branch that would silently take the else arm (rollout / OR) rather than fail -- they need an entity-level drop instead, which is the follow-up to #2395",
+        "kind": "forwardCompatible",
+        "expect": "accept",
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-accepted-flag",
+              "version": 1,
+              "type": "Timestamp",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            }
+          ],
+          "segments": []
+        }
+      },
+      {
+        "id": "mc-unknown-properties",
+        "description": "Unknown properties from a newer server are ignored, not rejected",
+        "kind": "forwardCompatible",
+        "expect": "accept",
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-accepted-flag",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": [],
+              "someFutureField": {
+                "nested": true
+              }
+            }
+          ],
+          "segments": []
+        }
+      }
+    ]
+  }
 }

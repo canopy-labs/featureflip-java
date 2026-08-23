@@ -34,6 +34,7 @@ class FeatureflipClientFactoryTest {
 
     @AfterEach
     void afterEach() {
+        FeatureflipClient.setEnvReaderForTesting(null); // restore System.getenv, before any throw
         FeatureflipClient.resetForTesting();
     }
 
@@ -93,8 +94,15 @@ class FeatureflipClientFactoryTest {
         }
     }
 
+    /**
+     * A blank key falls back to {@code FEATUREFLIP_SDK_KEY} (#2273), so it only throws when
+     * the environment supplies nothing either — pinned here rather than left to whatever the
+     * developer or runner happens to export. {@code SdkKeyResolutionTest} covers the fallback.
+     */
     @Test
-    void get_NullOrEmptyKey_Throws() {
+    void get_NullOrEmptyKey_WithNothingInTheEnvironment_Throws() {
+        FeatureflipClient.setEnvReaderForTesting(name -> null);
+
         assertThrows(IllegalArgumentException.class,
             () -> FeatureflipClient.get(null, fastConfig()));
         assertThrows(IllegalArgumentException.class,

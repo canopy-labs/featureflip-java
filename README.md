@@ -7,7 +7,7 @@ Java SDK for [Featureflip](https://featureflip.io) - evaluate feature flags loca
 ### Gradle
 
 ```groovy
-implementation 'io.featureflip:featureflip-java:2.5.0'
+implementation 'io.featureflip:featureflip-java:2.5.1'
 ```
 
 ### Maven
@@ -16,7 +16,7 @@ implementation 'io.featureflip:featureflip-java:2.5.0'
 <dependency>
     <groupId>io.featureflip</groupId>
     <artifactId>featureflip-java</artifactId>
-    <version>2.5.0</version>
+    <version>2.5.1</version>
 </dependency>
 ```
 
@@ -61,7 +61,7 @@ FeatureflipClient client = FeatureflipClient.get("your-sdk-key",
         .build());
 ```
 
-The SDK key can also be set via the `FEATUREFLIP_SDK_KEY` environment variable.
+The SDK key can also be supplied through the `FEATUREFLIP_SDK_KEY` environment variable — pass `null` or a blank string to `get()` (or `builder()`) and it is read from there. A key passed explicitly always wins. If neither supplies one, `get()` throws `IllegalArgumentException` naming both routes.
 
 ## Evaluation
 
@@ -104,6 +104,11 @@ System.out.println(detail.getErrorMessage());  // Error details if reason is ERR
 client.track("checkout-completed",
     EvaluationContext.of("123"),
     Map.of("total", 99.99));
+
+// Record an identify event for analytics (does not affect flag evaluation)
+client.identify(EvaluationContext.builder("123")
+    .set("plan", "pro")
+    .build());
 
 // Force flush pending events
 client.flush();

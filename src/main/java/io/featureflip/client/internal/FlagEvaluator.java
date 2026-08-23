@@ -213,7 +213,20 @@ public final class FlagEvaluator {
         }
 
         String stringValue = attrValue.toString();
-        boolean result = evaluateOperator(condition.getOperator(), stringValue, condition.getValues());
+        Boolean result = evaluateOperator(condition.getOperator(), stringValue, condition.getValues());
+
+        // Issue #2262: an operator that cannot be evaluated fails CLOSED. Inverting
+        // it with negate would turn "I cannot evaluate this" into "matches every
+        // user", serving the flag to 100% of traffic. Java's enum typing means an
+        // *unknown* operator cannot exist as a constant (Jackson raises
+        // InvalidFormatException first), so the reachable shape here is a null
+        // operator from a config that omits the field. Holding the invariant keeps
+        // this SDK's contract identical to the string-typed SDKs (js/go/ruby/php),
+        // where an unrecognised operator IS reachable over the wire.
+        if (result == null) {
+            return false;
+        }
+
         return condition.isNegate() ? !result : result;
     }
 
@@ -222,7 +235,18 @@ public final class FlagEvaluator {
             || op == ConditionOperator.IN || op == ConditionOperator.NOT_IN;
     }
 
-    boolean evaluateOperator(ConditionOperator op, String value, List<String> targets) {
+    /**
+     * Applies a single operator to {@code value}. Returns {@code null} — not {@code false} —
+     * when the operator cannot be evaluated, so callers can tell "cannot evaluate" apart from
+     * "evaluated, did not match"; only the latter may be inverted by negate (#2262).
+     */
+    Boolean evaluateOperator(ConditionOperator op, String value, List<String> targets) {
+        if (op == null) {
+            // Absent operator — "cannot evaluate", not "did not match". Guards the
+            // switch below, which would throw NPE on a null enum.
+            return null;
+        }
+
         if (op == null) return false;
         switch (op) {
             case EQUALS:
@@ -266,7 +290,8 @@ public final class FlagEvaluator {
             case SEMVER_LESS_THAN_OR_EQUAL:
                 return compareSemver(value, targets, c -> c <= 0);
             default:
-                return false;
+                // Unrecognised operator — "cannot evaluate", not "did not match".
+                return null;
         }
     }
 

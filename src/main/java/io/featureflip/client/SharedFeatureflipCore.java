@@ -514,20 +514,50 @@ final class SharedFeatureflipCore {
         event.setFlagKey(eventName);
         event.setUserId(context != null ? context.getUserId() : null);
         event.setTimestamp(Instant.now());
-        if (metadata != null && !metadata.isEmpty() && httpClient != null) {
-            try {
-                ObjectMapper mapper = httpClient.getObjectMapper();
-                Map<String, JsonNode> jsonMeta = new java.util.HashMap<>();
-                for (Map.Entry<String, Object> entry : metadata.entrySet()) {
-                    jsonMeta.put(entry.getKey(), mapper.valueToTree(entry.getValue()));
-                }
-                event.setMetadata(jsonMeta);
-            } catch (Exception e) {
-                log.warn("Failed to serialize track metadata: {}", e.getMessage());
-            }
+        setMetadata(event, metadata);
+        eventProcessor.enqueue(event);
+        if (eventProcessor.shouldFlush()) flushEvents();
+    }
+
+    /**
+     * Records an identify event. The context is optional — see
+     * {@link #trackEvaluation}.
+     *
+     * <p>The caller's attributes ride along as metadata. There is no alias to
+     * strip: {@link EvaluationContext} keeps the user id in its own field, so
+     * the attribute bag never carries the identity.
+     */
+    void identify(EvaluationContext context) {
+        if (testValues != null || eventProcessor == null) return;
+        SdkEvent event = new SdkEvent();
+        event.setType(SdkEventType.IDENTIFY);
+        event.setFlagKey("$identify");
+        event.setUserId(context != null ? context.getUserId() : null);
+        event.setTimestamp(Instant.now());
+        if (context != null) {
+            setMetadata(event, context.attributes());
         }
         eventProcessor.enqueue(event);
         if (eventProcessor.shouldFlush()) flushEvents();
+    }
+
+    /**
+     * Converts a caller-supplied bag to Jackson nodes and attaches it. An empty
+     * bag is left unset so {@code NON_NULL} omits the field entirely, matching
+     * the other SDKs (#2359).
+     */
+    private void setMetadata(SdkEvent event, Map<String, Object> metadata) {
+        if (metadata == null || metadata.isEmpty() || httpClient == null) return;
+        try {
+            ObjectMapper mapper = httpClient.getObjectMapper();
+            Map<String, JsonNode> jsonMeta = new java.util.HashMap<>();
+            for (Map.Entry<String, Object> entry : metadata.entrySet()) {
+                jsonMeta.put(entry.getKey(), mapper.valueToTree(entry.getValue()));
+            }
+            event.setMetadata(jsonMeta);
+        } catch (Exception e) {
+            log.warn("Failed to serialize event metadata: {}", e.getMessage());
+        }
     }
 
     // -------------------------------------------------------------------------

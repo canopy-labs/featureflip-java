@@ -29,6 +29,15 @@ public final class EvaluationContext {
     }
 
     /**
+     * The custom attributes, excluding the built-in user id. Package-private:
+     * only {@link SharedFeatureflipCore#identify} needs the whole bag, to carry
+     * it as an identify event's metadata.
+     */
+    java.util.Map<String, Object> attributes() {
+        return java.util.Collections.unmodifiableMap(attributes);
+    }
+
+    /**
      * Returns a shallow copy of this context, carrying the same user id and a
      * fresh attribute map (attribute <em>values</em> are shared by reference).
      *

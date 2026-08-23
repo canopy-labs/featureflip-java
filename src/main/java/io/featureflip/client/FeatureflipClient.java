@@ -7,6 +7,7 @@ import java.time.Duration;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 /**
  * The main client for evaluating feature flags. This is a thin handle over an internal
@@ -21,8 +22,19 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public final class FeatureflipClient implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(FeatureflipClient.class);
 
+    private static final String SDK_KEY_ENV_VAR = "FEATUREFLIP_SDK_KEY";
+
     private static final java.util.concurrent.ConcurrentHashMap<String, SharedFeatureflipCore> LIVE_CORES =
         new java.util.concurrent.ConcurrentHashMap<>();
+
+    /**
+     * Indirection over {@link System#getenv(String)}, so the environment fallback can be
+     * tested. Java has no supported way to mutate its own environment in-process — the
+     * reflection route into {@code ProcessEnvironment} is sealed by module encapsulation
+     * from 17 onward, and CI runs 11, 17 and 21. Production always reads the real
+     * environment; only {@link #setEnvReaderForTesting(Function)} ever changes this.
+     */
+    private static volatile Function<String, String> envReader = System::getenv;
 
     private final SharedFeatureflipCore core;
     private final AtomicBoolean closed = new AtomicBoolean(false);
@@ -32,9 +44,15 @@ public final class FeatureflipClient implements AutoCloseable {
         this.core = Objects.requireNonNull(core, "core");
     }
 
-    /** Returns a Builder that constructs a client via {@link Builder#build()}. */
+    /**
+     * Returns a Builder that constructs a client via {@link Builder#build()}.
+     *
+     * <p>The key resolves exactly as it does for {@link #get(String, FeatureFlagConfig)}:
+     * pass null or blank to fall back to {@code FEATUREFLIP_SDK_KEY}. Resolution — and the
+     * error when neither source supplies a key — happens at {@link Builder#build()}, which
+     * is where the client is actually constructed.
+     */
     public static Builder builder(String sdkKey) {
-        Objects.requireNonNull(sdkKey, "sdkKey must not be null");
         return new Builder(sdkKey);
     }
 
@@ -62,12 +80,17 @@ public final class FeatureflipClient implements AutoCloseable {
      * <p>If a later call passes a different config than the cached instance was constructed
      * with, the cached instance's config is preserved and a warning is logged.
      *
-     * @throws IllegalArgumentException if sdkKey is null, empty, or whitespace
+     * <p>If sdkKey is null or blank the {@code FEATUREFLIP_SDK_KEY} environment variable is
+     * used instead; an explicitly passed key always wins.
+     *
+     * @throws IllegalArgumentException if neither sdkKey nor {@code FEATUREFLIP_SDK_KEY}
+     *                                  supplies a non-blank key
      */
     public static FeatureflipClient get(String sdkKey, FeatureFlagConfig config) {
-        if (sdkKey == null || sdkKey.isBlank()) {
-            throw new IllegalArgumentException("sdkKey must not be null or blank");
-        }
+        // Resolved BEFORE the cache lookup: LIVE_CORES is keyed by SDK key, so resolving
+        // afterwards would give a caller who passes "" a different core from one who names
+        // the same key explicitly — two clients streaming against one environment.
+        final String resolvedKey = resolveSdkKey(sdkKey);
         Objects.requireNonNull(config, "config must not be null");
 
         // Retry loop handles the race where a cached core is found but has already begun
@@ -76,7 +99,7 @@ public final class FeatureflipClient implements AutoCloseable {
         // up a stale entry and retry (map shrinks), successfully add a new core and return,
         // or lose a putIfAbsent race and retry against the winner (which is now live in the map).
         while (true) {
-            SharedFeatureflipCore existing = LIVE_CORES.get(sdkKey);
+            SharedFeatureflipCore existing = LIVE_CORES.get(resolvedKey);
             if (existing != null) {
                 if (existing.tryAcquire()) {
                     if (!configsEqual(existing.getConfig(), config)) {
@@ -86,15 +109,15 @@ public final class FeatureflipClient implements AutoCloseable {
                     return new FeatureflipClient(existing);
                 }
                 // Stale entry — core shut down between lookup and acquire. Remove and retry.
-                LIVE_CORES.remove(sdkKey, existing);
+                LIVE_CORES.remove(resolvedKey, existing);
                 continue;
             }
 
-            SharedFeatureflipCore newCore = new SharedFeatureflipCore(sdkKey, config);
-            SharedFeatureflipCore winner = LIVE_CORES.putIfAbsent(sdkKey, newCore);
+            SharedFeatureflipCore newCore = new SharedFeatureflipCore(resolvedKey, config);
+            SharedFeatureflipCore winner = LIVE_CORES.putIfAbsent(resolvedKey, newCore);
             if (winner == null) {
                 // We won the race. Set the owning-map back-reference and return a handle.
-                newCore.setOwningMap(LIVE_CORES, sdkKey);
+                newCore.setOwningMap(LIVE_CORES, resolvedKey);
                 return new FeatureflipClient(newCore);
             }
 
@@ -102,6 +125,35 @@ public final class FeatureflipClient implements AutoCloseable {
             // (drives its refcount to 0 and triggers immediate shutdown) and retry.
             newCore.release();
         }
+    }
+
+    /**
+     * Resolves the SDK key from the argument, then the environment.
+     *
+     * <p>{@code FEATUREFLIP_SDK_KEY} was advertised in the README from the SDK's first
+     * release while nothing read it, and {@code get()} rejected the very input that should
+     * have triggered the fallback. The convention is real — python, go, csharp, ruby and
+     * php all implement this exact resolution — so java was the outlier, not the
+     * documentation (#2273).
+     */
+    static String resolveSdkKey(String sdkKey) {
+        if (sdkKey != null && !sdkKey.isBlank()) {
+            return sdkKey;
+        }
+        String fromEnvironment = envReader.apply(SDK_KEY_ENV_VAR);
+        if (fromEnvironment != null && !fromEnvironment.isBlank()) {
+            return fromEnvironment;
+        }
+        throw new IllegalArgumentException(
+            "An SDK key is required: pass it to FeatureflipClient.get() or set " + SDK_KEY_ENV_VAR);
+    }
+
+    /**
+     * Swaps the environment lookup used by {@link #resolveSdkKey(String)}. For test
+     * isolation only; pass null to restore {@link System#getenv}.
+     */
+    static void setEnvReaderForTesting(Function<String, String> reader) {
+        envReader = reader != null ? reader : System::getenv;
     }
 
     /** Diagnostic: current number of live shared cores in the static map. Test-only. */
@@ -199,6 +251,19 @@ public final class FeatureflipClient implements AutoCloseable {
             return;
         }
         core.track(eventName, context, metadata);
+    }
+
+    /**
+     * Records an identify event for analytics. This does not affect flag
+     * evaluation — targeting rules and segments are matched against the context
+     * passed to each variation call, and identify() neither sets a context for
+     * later calls nor persists attributes for targeting.
+     */
+    public void identify(EvaluationContext context) {
+        if (closed.get()) {
+            return;
+        }
+        core.identify(context);
     }
 
     public void flush() {
