@@ -161,6 +161,10 @@ public final class SseDataSource {
         if (key == null || key.isEmpty()) return;
 
         FlagConfiguration flag = httpClient.fetchFlag(key);
+        // null means the flag carried an enum this build cannot evaluate and was dropped
+        // at the parse boundary (#2402). fetchFlag has already said so; upserting null
+        // here would wipe the store's previous copy, which is the opposite of the intent.
+        if (flag == null) return;
         store.upsertFlag(flag);
         onInitialized.run();
         log.debug("SSE flag update: upserted flag '{}'", key);
@@ -193,6 +197,10 @@ public final class SseDataSource {
         // getFlags()/getSegments() may be null on a `"flags": null` payload — the
         // store's replace() and the log below both null-coalesce.
         GetFlagsResponse response = objectMapper.readValue(data, GetFlagsResponse.class);
+        // The sync frame is parsed here rather than through fetchFlags(), so the
+        // entity-drop has to be applied explicitly — letting the two transports diverge
+        // on the same payload shape is its own bug class (#2279).
+        UnevaluableEntities.dropUnevaluable(response);
         List<FlagConfiguration> flags = response.getFlags();
         List<Segment> segments = response.getSegments();
         store.replace(flags, segments);

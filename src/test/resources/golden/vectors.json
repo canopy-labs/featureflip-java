@@ -298,6 +298,578 @@
       "expectedMatch": false
     },
     {
+      "id": "c-date-unix-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "1700000000"
+      },
+      "operator": "After",
+      "values": [
+        "2024"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-unix-short-attribute",
+      "attribute": {
+        "type": "string",
+        "value": "100"
+      },
+      "operator": "After",
+      "values": [
+        "0"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-unix-negative",
+      "attribute": {
+        "type": "string",
+        "value": "-315619200"
+      },
+      "operator": "Before",
+      "values": [
+        "0"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-unix-millis-out-of-range",
+      "attribute": {
+        "type": "string",
+        "value": "1700000000000"
+      },
+      "operator": "After",
+      "values": [
+        "0"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unix-leading-plus-attribute",
+      "attribute": {
+        "type": "string",
+        "value": "\u002B5"
+      },
+      "operator": "After",
+      "values": [
+        "0"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-unix-leading-plus-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "100"
+      },
+      "operator": "After",
+      "values": [
+        "\u002B0"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-unix-leading-zero-octal-range",
+      "attribute": {
+        "type": "string",
+        "value": "0500"
+      },
+      "operator": "After",
+      "values": [
+        "400"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-unix-leading-zero-non-octal-digit",
+      "attribute": {
+        "type": "string",
+        "value": "0800"
+      },
+      "operator": "After",
+      "values": [
+        "0"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-unix-non-ascii-digits",
+      "attribute": {
+        "type": "string",
+        "value": "\u002B\u0661\u0662\u0663"
+      },
+      "operator": "After",
+      "values": [
+        "0"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unix-non-ascii-digits-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-11-15T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "\u002B\u0661\u0662\u0663"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-basic-eight-digit-attribute",
+      "attribute": {
+        "type": "string",
+        "value": "20240101"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-basic-eight-digit-attribute-before",
+      "attribute": {
+        "type": "string",
+        "value": "20240101"
+      },
+      "operator": "Before",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-basic-eight-digit-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2010-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "20240101"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-basic-eight-digit-epoch-year",
+      "attribute": {
+        "type": "string",
+        "value": "19700101"
+      },
+      "operator": "After",
+      "values": [
+        "1970-05-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-basic-eight-digit-leap-day",
+      "attribute": {
+        "type": "string",
+        "value": "20240229"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-iso-week-date-basic",
+      "attribute": {
+        "type": "string",
+        "value": "2024W011"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-iso-week-date-extended",
+      "attribute": {
+        "type": "string",
+        "value": "2024-W01-1"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-iso-basic-datetime",
+      "attribute": {
+        "type": "string",
+        "value": "20240101T000000"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-iso-basic-datetime-short-time",
+      "attribute": {
+        "type": "string",
+        "value": "20240101T0000"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-leading-form-feed",
+      "attribute": {
+        "type": "string",
+        "value": "\f5"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-ws-trailing-form-feed",
+      "attribute": {
+        "type": "string",
+        "value": "5\f"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-ws-leading-vertical-tab",
+      "attribute": {
+        "type": "string",
+        "value": "\u000B5"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-ws-leading-tab",
+      "attribute": {
+        "type": "string",
+        "value": "\t5"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-ws-leading-nul",
+      "attribute": {
+        "type": "string",
+        "value": "\u00005"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-trailing-nul",
+      "attribute": {
+        "type": "string",
+        "value": "5\u0000"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-leading-file-separator",
+      "attribute": {
+        "type": "string",
+        "value": "\u001C5"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-trailing-file-separator",
+      "attribute": {
+        "type": "string",
+        "value": "5\u001C"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-leading-next-line",
+      "attribute": {
+        "type": "string",
+        "value": "\u00855"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-leading-nbsp",
+      "attribute": {
+        "type": "string",
+        "value": "\u00A05"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-trailing-nbsp",
+      "attribute": {
+        "type": "string",
+        "value": "5\u00A0"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-leading-ideographic-space",
+      "attribute": {
+        "type": "string",
+        "value": "\u30005"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-leading-bom",
+      "attribute": {
+        "type": "string",
+        "value": "\uFEFF5"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-nul-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "1700000000"
+      },
+      "operator": "After",
+      "values": [
+        "5\u0000"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-ws-form-feed-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "1700000000"
+      },
+      "operator": "After",
+      "values": [
+        "\f5"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-iso-space-separator",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-01 00:00:00"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-iso-space-separator-offset",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-01 00:00:00\u002B05:00"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-iso-basic-offset",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-01T00:00:00\u002B0500"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-iso-no-seconds",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-01T00:00"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-iso-no-seconds-offset",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-01T00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-iso-space-separator-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2100-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-01 00:00:00"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-iso-hour-24-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-01T24:00:00"
+      },
+      "operator": "After",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-iso-hour-24-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-01T24:00:00"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unix-overflow-309-digits",
+      "attribute": {
+        "type": "string",
+        "value": "999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "operator": "Before",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unix-overflow-400-digits",
+      "attribute": {
+        "type": "string",
+        "value": "9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999"
+      },
+      "operator": "Before",
+      "values": [
+        "2000-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
       "id": "c-num-on-text",
       "attribute": {
         "type": "string",
@@ -798,6 +1370,60 @@
         "userId": "u",
         "attributes": {
           "plan": "free"
+        }
+      },
+      "expected": {
+        "variation": "standard",
+        "value": "standard-value",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-segment-unresolvable",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "premium",
+              "value": "premium-value"
+            },
+            {
+              "key": "standard",
+              "value": "standard-value"
+            }
+          ],
+          "rules": [
+            {
+              "id": "segment-rule",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Fixed",
+                "variation": "premium"
+              },
+              "segmentKey": "dropped-users"
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "standard"
+          },
+          "offVariation": "standard",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {
+          "plan": "premium"
         }
       },
       "expected": {
@@ -2048,6 +2674,371 @@
               "someFutureField": {
                 "nested": true
               }
+            }
+          ],
+          "segments": []
+        }
+      },
+      {
+        "id": "mc-unknown-serve-type-fallthrough",
+        "description": "An UNRECOGNISED serve type NAME on flag.fallthrough drops THAT FLAG and nothing else (#2402). Unlike flag.type this field IS consulted, and every evaluator dispatches on a two-way branch -- \u0060serve.type == \u0022Fixed\u0022\u0060 else ROLLOUT -- so tolerating the value the way #2395 tolerates an unknown flag type would bucket the flag against weights that may not exist, silently, instead of failing. Rejecting the whole payload is equally wrong: an additive server change would take down every flag on a pinned client. Dropping the containing flag routes the caller through the FlagNotFound path every SDK already implements -- their default for exactly the affected flag -- and leaves the rest serving",
+        "kind": "unevaluableEnum",
+        "expect": "dropEntity",
+        "dropFlags": [
+          "mc-bad-serve"
+        ],
+        "dropSegments": [],
+        "keepFlags": [
+          "mc-accepted-flag"
+        ],
+        "keepSegments": [
+          "mc-accepted"
+        ],
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-bad-serve",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": "Canary",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            },
+            {
+              "key": "mc-accepted-flag",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            }
+          ],
+          "segments": [
+            {
+              "key": "mc-accepted",
+              "version": 1,
+              "conditions": [
+                {
+                  "attribute": "plan",
+                  "operator": "Equals",
+                  "values": [
+                    "pro"
+                  ],
+                  "negate": false
+                }
+              ],
+              "conditionLogic": "And"
+            }
+          ]
+        }
+      },
+      {
+        "id": "mc-unknown-serve-type-rule",
+        "description": "The same unrecognised serve type, this time on a RULE\u0027s serve rather than the fallthrough. Carried separately because the two are parsed at different depths and an implementation that guards only the fallthrough looks correct against the vector above while still mis-serving every rule match (#2402)",
+        "kind": "unevaluableEnum",
+        "expect": "dropEntity",
+        "dropFlags": [
+          "mc-bad-rule-serve"
+        ],
+        "dropSegments": [],
+        "keepFlags": [
+          "mc-accepted-flag"
+        ],
+        "keepSegments": [],
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-bad-rule-serve",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [
+                {
+                  "id": "r1",
+                  "priority": 0,
+                  "conditionGroups": [],
+                  "serve": {
+                    "type": "Canary",
+                    "variation": "on"
+                  }
+                }
+              ],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            },
+            {
+              "key": "mc-accepted-flag",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            }
+          ],
+          "segments": []
+        }
+      },
+      {
+        "id": "mc-unknown-condition-logic-segment",
+        "description": "An UNRECOGNISED conditionLogic NAME on a SEGMENT drops that segment, keeping every flag -- including one whose rule POINTS AT the dropped segment (#2402). This is the serious half of the defect: \u0060logic == \u0022And\u0022\u0060 else ANY means an unrecognised value makes a segment meant to require ALL of its conditions match ANY of them, so the rule fails OPEN and over-targets. \u0060mc-references-dropped-segment\u0060 is retained deliberately -- the drop is scoped to the entity that carried the bad value, and a naive implementation that walked the reference and dropped the flag too would fail here. What happens to that dangling reference at EVALUATION time is pinned separately and engine-generated, by the \u0060f-segment-unresolvable\u0060 flagVector: every evaluator already treats an unresolvable segmentKey as no-match, so the cascade fails CLOSED",
+        "kind": "unevaluableEnum",
+        "expect": "dropEntity",
+        "dropFlags": [],
+        "dropSegments": [
+          "mc-bad-logic"
+        ],
+        "keepFlags": [
+          "mc-references-dropped-segment",
+          "mc-accepted-flag"
+        ],
+        "keepSegments": [
+          "mc-accepted"
+        ],
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-references-dropped-segment",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [
+                {
+                  "id": "r1",
+                  "priority": 0,
+                  "conditionGroups": [],
+                  "serve": {
+                    "type": "Fixed",
+                    "variation": "on"
+                  },
+                  "segmentKey": "mc-bad-logic"
+                }
+              ],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            },
+            {
+              "key": "mc-accepted-flag",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            }
+          ],
+          "segments": [
+            {
+              "key": "mc-bad-logic",
+              "version": 1,
+              "conditions": [
+                {
+                  "attribute": "plan",
+                  "operator": "Equals",
+                  "values": [
+                    "pro"
+                  ],
+                  "negate": false
+                }
+              ],
+              "conditionLogic": "Xor"
+            },
+            {
+              "key": "mc-accepted",
+              "version": 1,
+              "conditions": [
+                {
+                  "attribute": "plan",
+                  "operator": "Equals",
+                  "values": [
+                    "pro"
+                  ],
+                  "negate": false
+                }
+              ],
+              "conditionLogic": "And"
+            }
+          ]
+        }
+      },
+      {
+        "id": "mc-unknown-group-operator",
+        "description": "The same unrecognised conditionLogic NAME, this time as a rule condition GROUP\u0027s operator. Same enum, different carrier: the group lives on a flag rather than a segment, so the entity dropped is the FLAG. Carried separately because an implementation that guards segment.conditionLogic alone still lets a group operator fall through to the OR arm and over-target (#2402)",
+        "kind": "unevaluableEnum",
+        "expect": "dropEntity",
+        "dropFlags": [
+          "mc-bad-group-logic"
+        ],
+        "dropSegments": [],
+        "keepFlags": [
+          "mc-accepted-flag"
+        ],
+        "keepSegments": [],
+        "payload": {
+          "environment": "test",
+          "version": 99,
+          "flags": [
+            {
+              "key": "mc-bad-group-logic",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [
+                {
+                  "id": "r1",
+                  "priority": 0,
+                  "conditionGroups": [
+                    {
+                      "operator": "Xor",
+                      "conditions": [
+                        {
+                          "attribute": "plan",
+                          "operator": "Equals",
+                          "values": [
+                            "pro"
+                          ],
+                          "negate": false
+                        }
+                      ]
+                    }
+                  ],
+                  "serve": {
+                    "type": "Fixed",
+                    "variation": "on"
+                  }
+                }
+              ],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
+            },
+            {
+              "key": "mc-accepted-flag",
+              "version": 1,
+              "type": "Boolean",
+              "enabled": true,
+              "variations": [
+                {
+                  "key": "on",
+                  "value": true
+                },
+                {
+                  "key": "off",
+                  "value": false
+                }
+              ],
+              "rules": [],
+              "fallthrough": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "offVariation": "off",
+              "prerequisites": []
             }
           ],
           "segments": []

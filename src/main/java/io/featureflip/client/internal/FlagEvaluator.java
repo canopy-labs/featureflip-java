@@ -21,6 +21,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.function.BiPredicate;
 import java.util.function.IntPredicate;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -389,29 +390,165 @@ public final class FlagEvaluator {
      * one without an offset is assumed UTC. A bare integer is treated as Unix time in seconds.
      * Returns {@code null} when none of those parses succeed.
      */
-    private static Instant parseDateTime(String value) {
-        // Offset-aware ISO-8601 (handles "+05:00" and "Z").
-        try {
-            return OffsetDateTime.parse(value).toInstant();
-        } catch (DateTimeParseException ignored) {
-            // fall through
+    /**
+     * DateTimeOffset.MinValue / MaxValue as unix seconds — the exact bounds the engine's
+     * {@code FromUnixTimeSeconds} accepts before throwing (#2432).
+     */
+    private static final long MIN_UNIX_SECONDS = -62135596800L;
+    private static final long MAX_UNIX_SECONDS = 253402300799L;
+
+    /**
+     * The exact string shape the engine's {@code long.TryParse(v, NumberStyles.Integer,
+     * CultureInfo.InvariantCulture, ...)} accepts as unix seconds: an optional ASCII sign
+     * followed by ASCII digits.
+     *
+     * <p>{@link Long#parseLong} cannot be used as its own guard, because it resolves digits
+     * through {@link Character#digit} and so accepts every character in Unicode category
+     * {@code Nd} — {@code "\u0661\u0662\u0663"} (Arabic-Indic) parses to 123, {@code "\uFF15"}
+     * (fullwidth) to 5. The engine accepts none of those, in either of its two branches:
+     * invariant-culture number parsing is ASCII-only, and {@code DateTimeOffset.TryParse}
+     * rejects a pure-numeric string outright. So a non-ASCII digit string is not a date to
+     * the engine at all, and java was resolving it to an instant and matching alone (#2467).
+     * The other SDKs already land on ASCII by construction — go's {@code strconv.ParseInt}
+     * is ASCII-only, php's {@code preg_match} has no {@code /u}, and js/ruby {@code \d} is
+     * ASCII absent a Unicode flag.
+     */
+    private static final Pattern UNIX_SECONDS = Pattern.compile("[+-]?[0-9]+");
+
+    /**
+     * The ONLY characters trimmed from a date operand, and the whole of the operand's
+     * permitted whitespace: U+0009..U+000D plus U+0020 — exactly the class the engine's
+     * {@code NumberStyles.Integer} accepts via {@code AllowLeadingWhite | AllowTrailingWhite}.
+     *
+     * <p>{@link String#trim()} is deliberately NOT used: it strips every character at or below
+     * U+0020, so a NUL- or U+001C-prefixed operand was trimmed to {@code "5"} and matched here
+     * while the engine rejected it (#2468). {@link String#strip()} is worse still (it is
+     * Unicode-aware) and is unavailable on the Java 11 floor besides.
+     */
+    private static final String OPERAND_WHITESPACE = "\t\n\f\r ";
+
+    /**
+     * The ISO-8601 grammar a date operand may use: a calendar date, optionally followed by a
+     * time (seconds and fractional seconds optional) and an optional offset in either extended
+     * ({@code +05:00} / {@code Z}) or basic ({@code +0500}) form. The separator may be
+     * {@code T} or a space — the engine accepts both.
+     */
+    private static final Pattern ISO_OPERAND = Pattern.compile(
+            "(\\d{4}-\\d{2}-\\d{2})(?:[T ](\\d{2}):(\\d{2})(?::(\\d{2}))?(\\.\\d+)?(Z|[+-]\\d{2}:?\\d{2})?)?");
+
+    /**
+     * Trims only {@link #OPERAND_WHITESPACE}, then rejects any operand still carrying a
+     * character no date operand may contain: a NUL or other control character, or a non-ASCII
+     * whitespace/format character. An interior ASCII space is allowed — it is the ISO-8601
+     * date/time separator. Returns {@code null} when the operand is rejected.
+     */
+    private static String normalizeOperand(String value) {
+        int start = 0;
+        int end = value.length();
+        while (start < end && OPERAND_WHITESPACE.indexOf(value.charAt(start)) >= 0) {
+            start++;
         }
-        // ISO-8601 date-time without an offset — assume UTC.
-        try {
-            return LocalDateTime.parse(value).atOffset(ZoneOffset.UTC).toInstant();
-        } catch (DateTimeParseException ignored) {
-            // fall through
+        while (end > start && OPERAND_WHITESPACE.indexOf(value.charAt(end - 1)) >= 0) {
+            end--;
         }
-        // ISO-8601 date only — assume start-of-day UTC.
-        try {
-            return LocalDate.parse(value).atStartOfDay().atOffset(ZoneOffset.UTC).toInstant();
-        } catch (DateTimeParseException ignored) {
-            // fall through
+        String s = value.substring(start, end);
+        if (s.isEmpty()) {
+            return null;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c == ' ') {
+                continue;
+            }
+            if (Character.isISOControl(c) || Character.isWhitespace(c)
+                    || Character.isSpaceChar(c) || Character.getType(c) == Character.FORMAT) {
+                return null;
+            }
+        }
+        return s;
+    }
+
+    /**
+     * Rewrites an accepted ISO operand into the strict form {@code java.time} parses, so one
+     * grammar covers every shape the engine accepts. Java's ISO parsers reject a space
+     * separator and a basic offset outright, which is why java alone rejected
+     * {@code "2024-01-01 00:00:00"} and {@code "2024-01-01T00:00:00+0500"} (#2468).
+     * Returns {@code null} when the operand is not an accepted ISO shape.
+     */
+    private static String canonicalizeIso(String s) {
+        Matcher m = ISO_OPERAND.matcher(s);
+        if (!m.matches()) {
+            return null;
+        }
+        String date = m.group(1);
+        String hh = m.group(2);
+        if (hh == null) {
+            return date;
+        }
+        // The engine's DateTimeOffset.TryParse rejects hour 24 outright rather than rolling
+        // it over to 00:00 the next day.
+        if (hh.compareTo("24") >= 0) {
+            return null;
+        }
+        String mm = m.group(3);
+        String ss = m.group(4) == null ? "00" : m.group(4);
+        String frac = m.group(5) == null ? "" : m.group(5);
+        String off = m.group(6) == null ? "" : m.group(6);
+        // Basic offset (+0500) -> extended (+05:00); java.time accepts only the latter here.
+        if (off.length() == 5 && !"Z".equals(off)) {
+            off = off.substring(0, 3) + ":" + off.substring(3);
+        }
+        return date + "T" + hh + ":" + mm + ":" + ss + frac + off;
+    }
+
+    private static Instant parseDateTime(String rawValue) {
+        String value = normalizeOperand(rawValue);
+        if (value == null) {
+            return null;
+        }
+        String canonical = canonicalizeIso(value);
+        if (canonical != null) {
+            // Offset-aware ISO-8601 (handles "+05:00" and "Z").
+            try {
+                return OffsetDateTime.parse(canonical).toInstant();
+            } catch (DateTimeParseException ignored) {
+                // fall through
+            }
+            // ISO-8601 date-time without an offset — assume UTC.
+            try {
+                return LocalDateTime.parse(canonical).atOffset(ZoneOffset.UTC).toInstant();
+            } catch (DateTimeParseException ignored) {
+                // fall through
+            }
+            // ISO-8601 date only — assume start-of-day UTC.
+            try {
+                return LocalDate.parse(canonical).atStartOfDay().atOffset(ZoneOffset.UTC).toInstant();
+            } catch (DateTimeParseException ignored) {
+                // fall through
+            }
         }
         // Unix time in seconds.
+        //
+        // Out-of-range seconds match NOTHING rather than resolving to a far-future instant:
+        // the engine's FromUnixTimeSeconds throws outside DateTimeOffset's range and
+        // TryParseDateTime returns false. Instant's own range is vastly wider (it accepts
+        // roughly +/-31 billion years) so it would happily take the value, which is why the
+        // bound is explicit here. The case that matters in practice is a MILLISECONDS
+        // timestamp pasted where seconds belong -- System.currentTimeMillis() is the obvious
+        // way to produce one -- which would otherwise land in the year 55829 and satisfy
+        // every After comparison (#2432).
+        if (!UNIX_SECONDS.matcher(value).matches()) {
+            return null;
+        }
         try {
-            return Instant.ofEpochSecond(Long.parseLong(value.trim()));
+            long seconds = Long.parseLong(value);
+            if (seconds < MIN_UNIX_SECONDS || seconds > MAX_UNIX_SECONDS) {
+                return null;
+            }
+            return Instant.ofEpochSecond(seconds);
         } catch (NumberFormatException | DateTimeException ignored) {
+            // Still reachable: an all-ASCII digit string wider than a long satisfies the
+            // pattern but overflows the parse, so it never reaches the bounds check.
             return null;
         }
     }

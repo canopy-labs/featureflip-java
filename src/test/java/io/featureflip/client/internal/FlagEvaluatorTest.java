@@ -455,6 +455,36 @@ class FlagEvaluatorTest {
     }
 
     @Test
+    void beforeAfterRejectNonAsciiUnicodeDigits() {
+        // #2467: Long.parseLong resolves digits through Character.digit, which accepts every
+        // character in Unicode category Nd -- not just ASCII 0-9. The engine's
+        // long.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, ...) rejects
+        // them, and so does its DateTimeOffset.TryParse, so a non-ASCII digit string is not a
+        // date to the engine at all. Without an explicit ASCII gate java resolved "\u0661\u0662\u0663"
+        // to 123 seconds past the epoch and matched where every other implementation did not.
+        for (String operand : List.of(
+                "\u0661\u0662\u0663",   // Arabic-Indic 123
+                "+\u0661\u0662\u0663",  // ... with the leading sign long.TryParse would allow on ASCII
+                "\uFF15",       // fullwidth 5
+                "\u07C5",       // N'Ko 5
+                "\u0660")) {    // Arabic-Indic 0 -- would be the epoch itself
+            assertOperator(ConditionOperator.AFTER, operand, List.of("0"), false);
+            assertOperator(ConditionOperator.BEFORE, operand, List.of("253402300799"), false);
+            // Unparseable on the condition-value side too: it is skipped, leaving no match.
+            assertOperator(ConditionOperator.AFTER, "2023-11-15T00:00:00Z", List.of(operand), false);
+        }
+    }
+
+    @Test
+    void beforeAfterStillAcceptAsciiUnixSecondsWithSign() {
+        // The #2467 ASCII gate must not narrow the sign class the engine's NumberStyles.Integer
+        // accepts: a leading + or - stays a valid unix-seconds operand.
+        assertOperator(ConditionOperator.AFTER, "+1700000000", List.of("2020-01-01T00:00:00Z"), true);
+        assertOperator(ConditionOperator.BEFORE, "-315619200", List.of("1970-01-01T00:00:00Z"), true);
+        assertOperator(ConditionOperator.AFTER, "2023-11-15T00:00:00Z", List.of("+1700000000"), true);
+    }
+
+    @Test
     void beforeAfterUnparseableValueDoesNotMatch() {
         // #1455: an unparseable value must contribute NO match — never a lexical
         // compareToIgnoreCase fallback. The old code returned true here ("hello" vs "world").

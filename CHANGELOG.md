@@ -1,9 +1,30 @@
 # Changelog
 
+## 2.6.1 — 2026-08-24
+
+### Fixed
+
+- A date operand is now trimmed of exactly the whitespace the evaluation engine trims (tab, newline, vertical tab, form feed, carriage return and space), and is rejected outright if it still carries a NUL, another control character, or a non-ASCII whitespace character. Each SDK had been relying on its own language's `trim`, and no two of those cover the same set, so the same operand could match on one SDK and match nothing on another. ([#2468](https://github.com/canopy-labs/featureflip/issues/2468))
+- A date operand written with a space separator (`2024-01-01 00:00:00`), without seconds (`2024-01-01T00:00`), or with a basic offset (`+0500`) now parses. `java.time`'s ISO parsers reject all three, so they were matching nothing here while the engine accepted them. ([#2468](https://github.com/canopy-labs/featureflip/issues/2468))
+
+## 2.6.0 — 2026-08-24
+
+### Fixed
+
+- Analytics events now survive a transient failure of the events endpoint. The queue is drained before the batch is sent, so until now any non-2xx or network error discarded that batch outright — the public edge answers this endpoint with a 503 at a low but constant rate, so evaluation analytics were being lost steadily. A retryable failure (5xx, 429, transport fault, timeout) returns the batch to the front of the queue for the next flush; a permanent one (401/403/400) still drops it, because retrying a rejected SDK key forever would starve every later event. ([#2456](https://github.com/canopy-labs/featureflip/issues/2456))
+- A rejected event flush is now reported at all. `sendEvents` logged the response status and returned normally, so a rejected batch was indistinguishable from a delivered one; it throws `EventSendException` instead, which carries the status the flush path needs to decide whether to keep the batch. ([#2456](https://github.com/canopy-labs/featureflip/issues/2456))
+
+### Changed
+
+- The 10,000-event queue bound now sheds the OLDEST events rather than refusing the newest, so a re-queued batch is not discarded the moment it comes back and memory still stays bounded through a sustained outage. ([#2456](https://github.com/canopy-labs/featureflip/issues/2456))
+- A flush sends one request per batch instead of one request for the whole queue. Re-queuing failures is what lets the queue grow towards its bound during an outage, and posting all of it in a single body invites a 413 — which is not retryable, so the entire backlog would have been dropped by the very path that exists to preserve it. A permanently rejected batch is dropped and the flush moves on to the next one, so one poison batch cannot block the backlog behind it. ([#2456](https://github.com/canopy-labs/featureflip/issues/2456))
+- The batch-size flush trigger backs off for one flush interval after a retryable failure, and will not start a second flush while one is in flight. A re-queued batch leaves the queue at or above the batch size, so without this every recorded event would fire another request at an endpoint that is already failing. The scheduled flush remains the retry vehicle, and an explicit `flush()` is never gated. ([#2456](https://github.com/canopy-labs/featureflip/issues/2456))
+
 ## 2.5.1 — 2026-08-23
 
 ### Fixed
 
+- A `Before`/`After` operand written in non-ASCII digits no longer resolves to a unix timestamp. `Long.parseLong` accepts every character in Unicode category `Nd`, so `"١٢٣"` (Arabic-Indic) read as 123 seconds past the epoch and `"５"` (fullwidth) as 5 — matching in Java where the evaluation service and every other SDK matched nothing. ([#2467](https://github.com/canopy-labs/featureflip/issues/2467))
 - An unrecognised `FlagType` no longer fails the entire config fetch. One unknown value in one flag discarded the whole payload, so a single new server-side type could blank out every flag the SDK served. ([#2401](https://github.com/canopy-labs/featureflip/issues/2401))
 - An unrecognised condition operator now fails closed instead of matching every user. The default arm returned `false`, which a negated condition then inverted to `true` — so a config naming an operator the SDK did not know could silently target everyone. ([#2262](https://github.com/canopy-labs/featureflip/issues/2262))
 - An unrecognised condition operator is tolerated at deserialization instead of discarding the whole config, matching the string-typed SDKs. ([#2372](https://github.com/canopy-labs/featureflip/issues/2372))

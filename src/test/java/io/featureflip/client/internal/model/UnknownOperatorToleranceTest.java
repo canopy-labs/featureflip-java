@@ -7,7 +7,6 @@ import io.featureflip.client.internal.FlagHttpClient;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
  * An operator name this SDK build does not know must degrade ONE condition, not the
@@ -81,28 +80,57 @@ class UnknownOperatorToleranceTest {
     }
 
     /**
-     * The tolerance is scoped, not global. {@code FlagType} joined it in #2395 because
-     * nothing evaluates that field (see {@link UnknownFlagTypeToleranceTest}), but
-     * {@code ServeType} and {@code ConditionLogic} ARE consulted, and each dispatches on a
-     * two-way branch: a null {@code ServeType} falls to the rollout arm and a null
-     * {@code ConditionLogic} to OR semantics. Nulling them would convert a loud failure
-     * into silently wrong targeting — so they stay loud until they get the entity-drop
-     * treatment that actually fits them (follow-up to #2395). Enabling
-     * READ_UNKNOWN_ENUM_VALUES_AS_NULL globally is what this pins against; the ordinal
-     * case is IntegerEnumRejectionTest's (#2283).
+     * The tolerance is scoped, and the two evaluated enums are scoped DIFFERENTLY.
+     *
+     * <p>{@code FlagType} maps to null (#2395) because nothing evaluates that field, so a
+     * tolerated value has no downstream consumer to mis-serve on. {@code ServeType} and
+     * {@code ConditionLogic} ARE consulted, and each dispatches on a two-way branch — a
+     * null {@code ServeType} would fall to the rollout arm and a null
+     * {@code ConditionLogic} to OR semantics, converting a loud failure into silently
+     * wrong targeting. So they map to a distinct {@code UNRECOGNIZED} sentinel instead,
+     * which {@code UnevaluableEntities} uses to drop the containing flag or segment while
+     * the rest of the payload applies (#2402).
+     *
+     * <p>What this pins is the CONVERTER half: the payload parses, and the value is
+     * tellable apart both from a legitimate one and from an ABSENT one (which still
+     * deserializes to null, and whose handling is deliberately unchanged). The drop itself
+     * is pinned by {@code GoldenMalformedTest} against the shared fixture. Enabling
+     * READ_UNKNOWN_ENUM_VALUES_AS_NULL globally is what this guards against, because it
+     * would null these two rather than sentinel them and the drop could no longer tell
+     * unrecognised from absent; the ordinal case is IntegerEnumRejectionTest's (#2283).
      */
     @Test
-    void evaluatedEnumsStillFailLoudly() {
+    void evaluatedEnumsSentinelRatherThanThrow() throws Exception {
         String badServeType = "{\"key\":\"f\",\"version\":1,\"type\":\"Boolean\",\"enabled\":true,"
             + "\"fallthrough\":{\"type\":\"Canary\",\"variation\":\"off\"},\"offVariation\":\"off\"}";
 
-        assertThatThrownBy(() -> sdkMapper().readValue(badServeType, FlagConfiguration.class))
-            .isInstanceOf(InvalidFormatException.class);
+        FlagConfiguration flag = sdkMapper().readValue(badServeType, FlagConfiguration.class);
+        assertThat(flag.getFallthrough().getType()).isEqualTo(ServeType.UNRECOGNIZED);
 
         String badConditionLogic = "{\"key\":\"s\",\"version\":1,\"conditions\":[],"
             + "\"conditionLogic\":\"Xor\"}";
 
-        assertThatThrownBy(() -> sdkMapper().readValue(badConditionLogic, Segment.class))
-            .isInstanceOf(InvalidFormatException.class);
+        Segment segment = sdkMapper().readValue(badConditionLogic, Segment.class);
+        assertThat(segment.getConditionLogic()).isEqualTo(ConditionLogic.UNRECOGNIZED);
+    }
+
+    /**
+     * The sentinel must not swallow an ABSENT value. Absent is the
+     * missing-required-field axis, whose handling this change deliberately leaves alone —
+     * if it also produced UNRECOGNIZED, every payload omitting the field would start
+     * losing entities.
+     */
+    @Test
+    void absentEvaluatedEnumIsNotSentinelled() throws Exception {
+        String noServeType = "{\"key\":\"f\",\"version\":1,\"type\":\"Boolean\",\"enabled\":true,"
+            + "\"fallthrough\":{\"variation\":\"off\"},\"offVariation\":\"off\"}";
+
+        FlagConfiguration flag = sdkMapper().readValue(noServeType, FlagConfiguration.class);
+        assertThat(flag.getFallthrough().getType()).isNull();
+
+        String noConditionLogic = "{\"key\":\"s\",\"version\":1,\"conditions\":[]}";
+
+        Segment segment = sdkMapper().readValue(noConditionLogic, Segment.class);
+        assertThat(segment.getConditionLogic()).isNull();
     }
 }

@@ -79,6 +79,11 @@ class GoldenMalformedTest {
                 boolean applied;
                 try {
                     GetFlagsResponse parsed = mapper.treeToValue(payload, GetFlagsResponse.class);
+                    // Mirrors FlagHttpClient.fetchFlags: deserialize, then drop the entities
+                    // carrying an enum this build cannot evaluate (#2402). A runner that
+                    // skipped this step would pass every dropEntity vector by storing the
+                    // very flag it is supposed to drop.
+                    UnevaluableEntities.dropUnevaluable(parsed);
                     store.replace(parsed.getFlags(), parsed.getSegments());
                     applied = true;
                 } catch (Exception e) {
@@ -100,6 +105,30 @@ class GoldenMalformedTest {
                         assertThat(store.getFlag("mc-accepted-flag"))
                             .as("%s: accepted payload did not apply", description).isNotNull();
                         break;
+                    case "dropEntity":
+                        // Neither accept nor reject: the payload APPLIES, minus the
+                        // entities carrying an enum this build cannot evaluate. Both
+                        // halves are asserted — "dropped" alone is satisfied by rejecting
+                        // the whole payload, and "kept" alone by tolerating the bad value.
+                        assertThat(applied)
+                            .as("%s: payload was rejected wholesale", description).isTrue();
+                        for (String key : keys(v, "dropFlags")) {
+                            assertThat(store.getFlag(key))
+                                .as("%s: flag %s should have been dropped", description, key).isNull();
+                        }
+                        for (String key : keys(v, "dropSegments")) {
+                            assertThat(store.getSegment(key))
+                                .as("%s: segment %s should have been dropped", description, key).isNull();
+                        }
+                        for (String key : keys(v, "keepFlags")) {
+                            assertThat(store.getFlag(key))
+                                .as("%s: flag %s should have been kept", description, key).isNotNull();
+                        }
+                        for (String key : keys(v, "keepSegments")) {
+                            assertThat(store.getSegment(key))
+                                .as("%s: segment %s should have been kept", description, key).isNotNull();
+                        }
+                        break;
                     default:
                         throw new AssertionError("unmapped expect " + expect);
                 }
@@ -107,5 +136,15 @@ class GoldenMalformedTest {
         }
 
         return tests;
+    }
+
+    /** The named string array on a vector, or empty when the vector does not carry it. */
+    private static List<String> keys(JsonNode vector, String field) {
+        List<String> out = new ArrayList<>();
+        JsonNode node = vector.get(field);
+        if (node != null) {
+            for (JsonNode key : node) out.add(key.asText());
+        }
+        return out;
     }
 }

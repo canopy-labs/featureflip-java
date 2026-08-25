@@ -1,8 +1,10 @@
 package io.featureflip.client;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.featureflip.client.internal.EventProcessor;
+import io.featureflip.client.internal.EventSendException;
 import io.featureflip.client.internal.FlagEvaluator;
 import io.featureflip.client.internal.FlagHttpClient;
 import io.featureflip.client.internal.FlagStore;
@@ -15,6 +17,8 @@ import io.featureflip.client.internal.model.Variation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
@@ -26,6 +30,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 
 /**
@@ -74,6 +79,32 @@ final class SharedFeatureflipCore {
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final AtomicReference<PollingDataSource> fallbackPoller = new AtomicReference<>();
     private ScheduledFuture<?> flushTask;
+
+    /**
+     * Monotonic deadline — a {@link System#nanoTime()} reading — before which the
+     * batch-size trigger must not start another flush.
+     *
+     * <p>A re-queued batch leaves the queue at or above {@code flushBatchSize}, so without
+     * this gate every subsequent tracked event would start another flush: one request per
+     * evaluation against an endpoint that is already failing, which is worse for the server
+     * than the dropping this fix replaces. The scheduled flush loop is the retry vehicle;
+     * this only suppresses the size trigger between its ticks, and an explicit
+     * {@code flush()} is never gated.
+     *
+     * <p>Seeded with "now" rather than 0 because {@code nanoTime()}'s origin is arbitrary
+     * and its readings may be negative; comparisons subtract to stay overflow-safe.
+     */
+    private final AtomicLong nextAutoFlushAtNanos = new AtomicLong(System.nanoTime());
+
+    /**
+     * True while a batch-size-triggered flush is in flight.
+     *
+     * <p>The backoff gate alone is not enough: it is only armed once a flush has FAILED, and
+     * the size trigger fires again long before the first HTTP round-trip returns. Without
+     * this latch every thread evaluating in a tight loop would start its own concurrent
+     * flush against the failing endpoint.
+     */
+    private final AtomicBoolean autoFlushInFlight = new AtomicBoolean(false);
 
     /** Current refcount. For testing/diagnostics only. */
     int getRefCount() { return refCount.get(); }
@@ -492,10 +523,7 @@ final class SharedFeatureflipCore {
         event.setVariation(variationKey);
         event.setTimestamp(Instant.now());
         eventProcessor.enqueue(event);
-
-        if (eventProcessor.shouldFlush()) {
-            flushEvents();
-        }
+        maybeAutoFlush();
     }
 
     // -------------------------------------------------------------------------
@@ -516,7 +544,7 @@ final class SharedFeatureflipCore {
         event.setTimestamp(Instant.now());
         setMetadata(event, metadata);
         eventProcessor.enqueue(event);
-        if (eventProcessor.shouldFlush()) flushEvents();
+        maybeAutoFlush();
     }
 
     /**
@@ -538,7 +566,7 @@ final class SharedFeatureflipCore {
             setMetadata(event, context.attributes());
         }
         eventProcessor.enqueue(event);
-        if (eventProcessor.shouldFlush()) flushEvents();
+        maybeAutoFlush();
     }
 
     /**
@@ -623,16 +651,92 @@ final class SharedFeatureflipCore {
         }
     }
 
+    /**
+     * Runs a batch-size-triggered flush, unless a retryable failure has put the size trigger
+     * in backoff or an earlier size-triggered flush is still in flight.
+     *
+     * <p>Kept synchronous on the calling thread, as the size trigger has always been — the
+     * latch is what stops concurrent evaluators from each opening their own flush.
+     */
+    private void maybeAutoFlush() {
+        if (!eventProcessor.shouldFlush()) return;
+        // Subtraction rather than a bare >=: nanoTime() readings roll over, and only the
+        // difference between two of them is meaningful.
+        if (System.nanoTime() - nextAutoFlushAtNanos.get() < 0) return;
+        if (!autoFlushInFlight.compareAndSet(false, true)) return;
+        try {
+            flushEvents();
+        } finally {
+            autoFlushInFlight.set(false);
+        }
+    }
+
     private void flushEvents() {
         if (eventProcessor == null || httpClient == null) return;
-        try {
-            var events = eventProcessor.drain();
-            if (!events.isEmpty()) {
+
+        // One request per batch rather than one for the whole queue: re-queuing failures
+        // lets the queue grow towards its bound during an outage, and posting all of it in
+        // one body risks a 413 — which is not retryable, so the backlog would be dropped by
+        // the very path meant to keep it.
+        while (true) {
+            // Drained BEFORE the send, so the batch has to be held here to be put back if
+            // the send fails. Without that a single transient failure discarded it outright
+            // — and the production edge answers this endpoint with a 503 at a low constant
+            // rate, so evaluation analytics were being lost steadily (#2456).
+            List<SdkEvent> events = eventProcessor.drainBatch(flushBatchSize());
+            if (events.isEmpty()) return;
+
+            try {
                 httpClient.sendEvents(events);
+                // A delivery clears whatever backoff a previous failure armed.
+                nextAutoFlushAtNanos.set(System.nanoTime());
+            } catch (Exception e) {
+                if (isRetryableFlushFailure(e)) {
+                    int dropped = eventProcessor.requeue(events);
+                    nextAutoFlushAtNanos.set(System.nanoTime() + autoFlushBackoffNanos());
+                    log.warn("Event flush failed, {} of {} events re-queued for the next flush "
+                        + "({} dropped to stay within the queue bound): {}",
+                        events.size() - dropped, events.size(), dropped, e.getMessage());
+                    // Stop here. The batch is back at the head of the queue this loop is
+                    // draining, so continuing would re-send it immediately and spin for as
+                    // long as the endpoint stays down.
+                    return;
+                }
+                // Dropped, so the queue shrinks and the loop still terminates — move on to
+                // the next batch rather than letting one poison batch block the backlog
+                // behind it.
+                log.warn("Event flush failed, dropped {} events because the failure is not "
+                    + "retryable: {}", events.size(), e.getMessage());
             }
-        } catch (Exception e) {
-            log.warn("Event flush failed: {}", e.getMessage());
         }
+    }
+
+    /**
+     * Whether a failed flush could plausibly succeed if the same batch were sent again.
+     *
+     * <p>For an HTTP answer the status decides — see {@link EventSendException#isRetryable()}.
+     * A serialization failure is permanent by construction: the same objects will not
+     * serialize on the next attempt either, and retrying them forever would pin the queue at
+     * its bound and starve every later event. It is checked first because Jackson's
+     * exception is itself an {@link IOException}. Everything else that reaches an
+     * {@code IOException} here is a transport fault (connection reset, DNS, TLS) or a socket
+     * timeout, both transient by nature.
+     */
+    private static boolean isRetryableFlushFailure(Exception e) {
+        if (e instanceof EventSendException) return ((EventSendException) e).isRetryable();
+        if (e instanceof JsonProcessingException) return false;
+        return e instanceof IOException;
+    }
+
+    /** How many events go into one request. {@code drainBatch} clamps a non-positive value. */
+    private int flushBatchSize() {
+        return config != null ? config.getFlushBatchSize() : 100;
+    }
+
+    /** How long the size trigger stays gated after a retryable failure. */
+    private long autoFlushBackoffNanos() {
+        Duration interval = config != null ? config.getFlushInterval() : Duration.ofSeconds(30);
+        return TimeUnit.MILLISECONDS.toNanos(interval.toMillis());
     }
 
     private void startPolling() {
@@ -667,7 +771,11 @@ final class SharedFeatureflipCore {
         PollingDataSource fb = fallbackPoller.getAndSet(null);
         if (fb != null) fb.close();
 
-        // Final flush
+        // Close the queue BEFORE the final flush, so that flush's re-queue is refused: a
+        // batch put back at this point would only be leaked, and looping until it delivered
+        // would hang shutdown for as long as the endpoint stayed down. One attempt, then
+        // whatever is left is discarded.
+        if (eventProcessor != null) eventProcessor.close();
         flushEvents();
 
         // Shutdown executor
@@ -683,7 +791,6 @@ final class SharedFeatureflipCore {
             }
         }
 
-        if (eventProcessor != null) eventProcessor.close();
         if (httpClient != null) httpClient.close();
 
         log.debug("SharedFeatureflipCore shut down");
