@@ -97,6 +97,28 @@ final class SharedFeatureflipCore {
     private final AtomicLong nextAutoFlushAtNanos = new AtomicLong(System.nanoTime());
 
     /**
+     * Monitor guarding the drain-loop coalescing state below.
+     *
+     * <p>{@code autoFlushInFlight} guards only the SIZE trigger. Nothing stopped the
+     * scheduled flush loop, an explicit {@code flush()} from the public client API and a
+     * size-triggered flush from entering the drain together — two request streams against
+     * the endpoint the backoff gate exists to protect, and a success in one clearing the
+     * gate a failure in the other had just armed, which re-opens the
+     * one-request-per-evaluation behaviour outright (#2477).
+     *
+     * <p>Generation counters rather than a bare flag: a waiter has to be able to tell "the
+     * drain I was waiting for has finished" from "a later drain is running", or it would
+     * sleep through its own completion.
+     */
+    private final Object flushGate = new Object();
+
+    private boolean drainInFlight;
+
+    private long drainStarted;
+
+    private long drainFinished;
+
+    /**
      * True while a batch-size-triggered flush is in flight.
      *
      * <p>The backoff gate alone is not enough: it is only armed once a flush has FAILED, and
@@ -671,7 +693,51 @@ final class SharedFeatureflipCore {
         }
     }
 
+    /**
+     * Drains the event queue, coalescing with any drain already in progress.
+     *
+     * <p>At most one drain runs at a time. A caller that arrives while one is already going
+     * waits for it and returns — it does NOT start its own, and it does NOT return early,
+     * because a caller that asked for a flush is asking for its events to be sent. This
+     * matches the js/node SDKs, whose {@code flush()} has always returned the in-flight
+     * promise.
+     */
     private void flushEvents() {
+        if (eventProcessor == null || httpClient == null) return;
+
+        long mine;
+        synchronized (flushGate) {
+            if (drainInFlight) {
+                long waitingFor = drainStarted;
+                while (drainFinished < waitingFor) {
+                    try {
+                        flushGate.wait();
+                    } catch (InterruptedException e) {
+                        // Restore the flag and give up waiting: the drain this caller was
+                        // owed is still running and will finish on its own thread.
+                        Thread.currentThread().interrupt();
+                        return;
+                    }
+                }
+                return;
+            }
+            drainInFlight = true;
+            mine = ++drainStarted;
+        }
+
+        try {
+            drainEvents();
+        } finally {
+            synchronized (flushGate) {
+                drainInFlight = false;
+                drainFinished = mine;
+                flushGate.notifyAll();
+            }
+        }
+    }
+
+    /** The drain loop itself, callable when coalescing must be bypassed. */
+    private void drainEvents() {
         if (eventProcessor == null || httpClient == null) return;
 
         // One request per batch rather than one for the whole queue: re-queuing failures
@@ -776,7 +842,13 @@ final class SharedFeatureflipCore {
         // would hang shutdown for as long as the endpoint stayed down. One attempt, then
         // whatever is left is discarded.
         if (eventProcessor != null) eventProcessor.close();
-        flushEvents();
+        // drainEvents, not flushEvents: shutdown must never be the call that gets coalesced
+        // away. If a scheduled drain happens to be in flight, flushEvents would wait for it
+        // and return, and anything enqueued after that loop's last look at the queue would
+        // be discarded unsent. Two drains overlapping is safe here precisely because the
+        // processor is already closed, so neither can re-queue and there is no backoff left
+        // to disarm.
+        drainEvents();
 
         // Shutdown executor
         if (executor != null) {

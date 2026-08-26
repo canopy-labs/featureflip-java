@@ -16,13 +16,15 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class SseDataSource {
     private static final Logger log = LoggerFactory.getLogger(SseDataSource.class);
-    private static final int MAX_BACKOFF_SECONDS = 30;
+    static final int MAX_BACKOFF_SECONDS = 30;
     private static final int MAX_CONSECUTIVE_FAILURES = 5;
     // Liveness watchdog: a finite SSE read timeout well above the ~30s server
     // ping (≈3 missed pings). With readTimeout(0) a half-open socket (silent
@@ -38,6 +40,9 @@ public final class SseDataSource {
     private final ScheduledExecutorService executor;
     private final AtomicReference<EventSource> eventSourceRef = new AtomicReference<>();
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
+    // True once a stream has opened, cleared when it fails. Distinguishes a routine
+    // sever of a working stream from one that never carried any configuration (#2457).
+    private final AtomicBoolean streamOpened = new AtomicBoolean(false);
     private volatile boolean closed = false;
 
     public SseDataSource(FlagHttpClient httpClient, FlagStore store,
@@ -81,11 +86,21 @@ public final class SseDataSource {
             .build();
 
         EventSource.Factory factory = EventSources.createFactory(sseClient);
-        EventSource es = factory.newEventSource(request, new EventSourceListener() {
+        EventSource es = factory.newEventSource(request, buildSseListener());
+
+        eventSourceRef.set(es);
+    }
+
+    // Visible for testing. Holds the reconnect-severity policy (see onFailure), which
+    // is asserted by driving this listener directly -- racing a real socket into an
+    // abrupt mid-body sever is not reproducible enough to gate on.
+    public EventSourceListener buildSseListener() {
+        return new EventSourceListener() {
             @Override
             public void onOpen(EventSource eventSource, Response response) {
                 log.debug("SSE connection opened");
                 consecutiveFailures.set(0);
+                streamOpened.set(true);
             }
 
             @Override
@@ -103,8 +118,19 @@ public final class SseDataSource {
             public void onFailure(EventSource eventSource, Throwable t, Response response) {
                 if (closed) return;
                 int failures = consecutiveFailures.incrementAndGet();
-                log.warn("SSE connection failed (attempt {}): {}",
-                    failures, t != null ? t.getMessage() : "unknown");
+                String cause = t != null ? t.getMessage() : "unknown";
+
+                // A stream that had opened and was then severed is routine behind a CDN
+                // or proxy (#2457): reconnect() heals it and the server replays a full
+                // `sync`, so no configuration is missed and nothing is degraded. A stream
+                // that never opened carried nothing, so it keeps its warning -- as does
+                // the fallback below. Mirrors the `reached` split in the python and C#
+                // cores. Backoff is unchanged; only the severity moves.
+                if (streamOpened.getAndSet(false)) {
+                    log.debug("SSE stream severed after opening, reconnecting: {}", cause);
+                } else {
+                    log.warn("SSE connection failed (attempt {}): {}", failures, cause);
+                }
 
                 if (failures >= MAX_CONSECUTIVE_FAILURES) {
                     log.warn("SSE failed {} consecutive times, falling back to polling", failures);
@@ -113,18 +139,32 @@ public final class SseDataSource {
                 }
                 reconnect();
             }
-        });
-
-        eventSourceRef.set(es);
+        };
     }
 
     private void reconnect() {
         if (closed) return;
-        int failures = consecutiveFailures.get();
-        long backoffSeconds = Math.min((1L << failures), MAX_BACKOFF_SECONDS);
-        log.debug("Reconnecting SSE in {}s", backoffSeconds);
+        long backoff = backoffMillis(consecutiveFailures.get());
+        log.debug("Reconnecting SSE in {}ms", backoff);
 
-        executor.schedule(this::connect, backoffSeconds, TimeUnit.SECONDS);
+        executor.schedule(this::connect, backoff, TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Capped exponential reconnect backoff, jittered to [d/2, d] at every level.
+     *
+     * <p>The jitter is load-bearing on the FIRST reconnect, not just the escalating
+     * ones: the drops this absorbs are fleet-wide — one edge event severs every stream
+     * at once (#2457) — so every client re-enters here at the same failure count
+     * together. A constant there replayed the drop's own synchronisation as a
+     * reconnect spike one delay later (#2508). The band's lower bound is strictly
+     * positive, so a clean sever still cannot busy-loop.
+     */
+    static long backoffMillis(int failures) {
+        long seconds = Math.min(1L << Math.min(failures, 32), MAX_BACKOFF_SECONDS);
+        long millis = seconds * 1000L;
+        long half = millis / 2;
+        return half + ThreadLocalRandom.current().nextLong(half + 1);
     }
 
     private void handleEvent(String type, String data) {

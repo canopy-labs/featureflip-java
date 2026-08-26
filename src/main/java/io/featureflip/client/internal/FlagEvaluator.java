@@ -501,6 +501,35 @@ public final class FlagEvaluator {
         return date + "T" + hh + ":" + mm + ":" + ss + frac + off;
     }
 
+    /**
+     * Applies the SAME bounds the Unix-seconds branch of {@link #parseDateTime} already enforces
+     * to an instant resolved from the ISO branch, returning {@code null} outside them.
+     *
+     * <p>The engine parses with {@code DateTimeOffset.TryParse}, so its accepted set is bounded by
+     * {@code DateTimeOffset}'s range — 0001-01-01T00:00:00Z to 9999-12-31T23:59:59.9999999Z — and
+     * it returns false outside it. java, js, ruby, php and go all resolve past both ends instead:
+     * year 0 to a real instant, and a 4-digit year plus an offset to one beyond either bound, since
+     * the offset moves the instant while the grammar only constrains the written year (#2500).
+     *
+     * <p>Checked on the RESOLVED instant, deliberately unlike the written-triple calendar check the
+     * three rollover SDKs needed in #2491. The two answer different questions: whether the operand
+     * names a real DAY is a property of what was written, whereas whether it is REPRESENTABLE is a
+     * property of what it resolves to — and the offset is exactly what carries
+     * {@code 0001-01-01T00:00:00+05:00} under the floor and {@code 9999-12-31T23:59:59-05:00} over
+     * the ceiling.
+     *
+     * <p>{@link Instant#getEpochSecond()} floors, matching the other SDKs: a fractional second is
+     * always a non-negative addend, so {@code 0000-12-31T23:59:59.5Z} floors to MIN-1 and is
+     * rejected while {@code 0001-01-01T00:00:00.5Z} floors to MIN and is kept.
+     */
+    private static Instant inDateTimeOffsetRange(Instant instant) {
+        long seconds = instant.getEpochSecond();
+        if (seconds < MIN_UNIX_SECONDS || seconds > MAX_UNIX_SECONDS) {
+            return null;
+        }
+        return instant;
+    }
+
     private static Instant parseDateTime(String rawValue) {
         String value = normalizeOperand(rawValue);
         if (value == null) {
@@ -510,19 +539,21 @@ public final class FlagEvaluator {
         if (canonical != null) {
             // Offset-aware ISO-8601 (handles "+05:00" and "Z").
             try {
-                return OffsetDateTime.parse(canonical).toInstant();
+                return inDateTimeOffsetRange(OffsetDateTime.parse(canonical).toInstant());
             } catch (DateTimeParseException ignored) {
                 // fall through
             }
             // ISO-8601 date-time without an offset — assume UTC.
             try {
-                return LocalDateTime.parse(canonical).atOffset(ZoneOffset.UTC).toInstant();
+                return inDateTimeOffsetRange(
+                        LocalDateTime.parse(canonical).atOffset(ZoneOffset.UTC).toInstant());
             } catch (DateTimeParseException ignored) {
                 // fall through
             }
             // ISO-8601 date only — assume start-of-day UTC.
             try {
-                return LocalDate.parse(canonical).atStartOfDay().atOffset(ZoneOffset.UTC).toInstant();
+                return inDateTimeOffsetRange(
+                        LocalDate.parse(canonical).atStartOfDay().atOffset(ZoneOffset.UTC).toInstant());
             } catch (DateTimeParseException ignored) {
                 // fall through
             }

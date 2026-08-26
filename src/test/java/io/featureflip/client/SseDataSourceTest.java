@@ -10,8 +10,13 @@ import mockwebserver3.MockWebServer;
 import mockwebserver3.RecordedRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import okhttp3.sse.EventSourceListener;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.PrintStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
@@ -87,6 +92,28 @@ class SseDataSourceTest {
         return "event: " + event + "\ndata: " + data + "\n\n";
     }
 
+
+    /**
+     * Asserts the source connected and issued no REFETCH — no request to anything but
+     * the SSE stream endpoint.
+     *
+     * <p>Counted by path rather than by total request count: a reconnect re-hits the
+     * stream endpoint, and since #2508 its delay is jittered to [d/2, d], so it can
+     * land inside a test's sleep window. A raw {@code getRequestCount() == 1} read a
+     * routine reconnect as a refetch — and only passed before because the un-jittered
+     * 1s backoff happened to tie the 1s sleep.
+     */
+    private void assertOnlyStreamRequests() throws InterruptedException {
+        assertThat(server.getRequestCount()).as("the stream should have been connected").isGreaterThanOrEqualTo(1);
+
+        RecordedRequest request;
+        while ((request = server.takeRequest(50, TimeUnit.MILLISECONDS)) != null) {
+            assertThat(request.getUrl().encodedPath())
+                .as("only the SSE stream endpoint should be hit — a refetch would use another path")
+                .isEqualTo("/v1/sdk/stream");
+        }
+    }
+
     private SseDataSource createDataSource() {
         return createDataSource(() -> {});
     }
@@ -97,6 +124,56 @@ class SseDataSourceTest {
             .build();
         FlagHttpClient httpClient = new FlagHttpClient("test-sdk-key", config);
         return new SseDataSource(httpClient, store, executor, onInitialized, () -> {});
+    }
+
+    /**
+     * Captures whatever slf4j-simple writes while {@code body} runs. slf4j-simple
+     * resolves System.err per write (cacheOutputStream defaults to false), so
+     * swapping it here is enough to observe the level a line was logged at.
+     */
+    private String captureStderr(Runnable body) {
+        PrintStream original = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            body.run();
+        } finally {
+            System.setErr(original);
+        }
+        return captured.toString(StandardCharsets.UTF_8);
+    }
+
+    @Test
+    void severAfterHealthyStreamIsNotLoggedAtWarn() {
+        // A stream severed after it opened is routine behind a CDN or proxy (#2457):
+        // the source reconnects and the server replays a full `sync`, so nothing is
+        // degraded. Warning on it turned ordinary operation into recurring alarm.
+        SseDataSource sseDataSource = createDataSource();
+        EventSourceListener listener = sseDataSource.buildSseListener();
+
+        String err = captureStderr(() -> {
+            listener.onOpen(null, null);
+            listener.onFailure(null, new IOException("The response ended prematurely"), null);
+        });
+
+        assertThat(err).doesNotContain("WARN");
+
+        sseDataSource.close();
+    }
+
+    @Test
+    void streamThatNeverOpenedIsStillLoggedAtWarn() {
+        // The counterpart: a stream that never opened carried no configuration, so
+        // quieting the routine sever must not quieten this one too.
+        SseDataSource sseDataSource = createDataSource();
+        EventSourceListener listener = sseDataSource.buildSseListener();
+
+        String err = captureStderr(() ->
+            listener.onFailure(null, new IOException("connection refused"), null));
+
+        assertThat(err).contains("WARN");
+
+        sseDataSource.close();
     }
 
     @Test
@@ -185,7 +262,7 @@ class SseDataSourceTest {
         sseDataSource.close();
 
         assertThat(store.getFlag("doomed-flag")).isNull();
-        assertThat(server.getRequestCount()).isEqualTo(1);
+        assertOnlyStreamRequests();
     }
 
     @Test
@@ -273,7 +350,7 @@ class SseDataSourceTest {
         sseDataSource.close();
 
         assertThat(store.getAllFlags()).isEmpty();
-        assertThat(server.getRequestCount()).isEqualTo(1);
+        assertOnlyStreamRequests();
     }
 
     @Test
@@ -291,7 +368,7 @@ class SseDataSourceTest {
         sseDataSource.close();
 
         assertThat(store.getAllFlags()).isEmpty();
-        assertThat(server.getRequestCount()).isEqualTo(1);
+        assertOnlyStreamRequests();
     }
 
     @Test
@@ -320,7 +397,7 @@ class SseDataSourceTest {
         // Full REPLACE, not merge: a flag absent from the snapshot is dropped.
         assertThat(store.getFlag("flag-stale")).isNull();
         // sync carries the payload — no second (fetch) request, unlike segment.updated.
-        assertThat(server.getRequestCount()).isEqualTo(1);
+        assertOnlyStreamRequests();
     }
 
     @Test
@@ -401,6 +478,6 @@ class SseDataSourceTest {
         // would otherwise be swallowed by @JsonIgnoreProperties(ignoreUnknown).
         assertThat(store.getSegment("snapshot-segment")).as("segment from snapshot applied").isNotNull();
         assertThat(store.getFlag("flag-stale")).as("full replace drops absent flag").isNull();
-        assertThat(server.getRequestCount()).as("sync carries the payload — no refetch").isEqualTo(1);
+        assertOnlyStreamRequests(); // sync carries the payload — no refetch
     }
 }

@@ -156,12 +156,45 @@ class GoldenVectorTest {
 
     @TestFactory
     List<DynamicTest> conditionVectors() throws Exception {
+        return conditionVectorTests("conditionVectors");
+    }
+
+    /**
+     * A date operand outside the ISO grammar must match nothing (#2480).
+     *
+     * <p>Hand-authored because the ENGINE DISSENTS: {@code DateTimeOffset.TryParse} under the
+     * invariant culture is lenient about the date FORMAT rather than merely about ISO-8601 — it
+     * resolves {@code 05/15/2023}, {@code Jan 1 2024} and {@code 2024.01.01} — so generating these
+     * would take the engine's match as the expectation and fail every SDK runner. The engine keeps
+     * that leniency deliberately: narrowing it would stop an operand that evaluates today from
+     * evaluating at all, for rules customers may already have saved, so Management rejects them on
+     * the WRITE path instead.
+     *
+     * <p>The six SDKs that always rejected these did so as a SIDE EFFECT of their grammar and not
+     * one of them asserted it — which is how js came to resolve a non-ISO operand in the host's
+     * timezone unnoticed, the same invisible-divergence shape as #1989 and #2281.
+     */
+    @TestFactory
+    List<DynamicTest> dateGrammarVectors() throws Exception {
+        return conditionVectorTests("dateGrammarVectors");
+    }
+
+    /**
+     * Builds the single-condition flag each vector describes and asserts whether the "match"
+     * variation is served. Shared by the engine-generated condition vectors and the hand-authored
+     * date-grammar vectors, which have an identical input shape.
+     */
+    private List<DynamicTest> conditionVectorTests(String vectorClass) throws Exception {
         JsonNode root = loadFixture();
         FlagStore store = new FlagStore();
         FlagEvaluator evaluator = new FlagEvaluator(store);
 
+        JsonNode vectors = root.get(vectorClass);
+        assertThat(vectors).as("%s must be present in the fixture", vectorClass).isNotNull();
+        assertThat(vectors.size()).as("%s must not be empty", vectorClass).isPositive();
+
         List<DynamicTest> tests = new ArrayList<>();
-        for (JsonNode v : root.get("conditionVectors")) {
+        for (JsonNode v : vectors) {
             String id = v.get("id").asText();
             JsonNode attrNode = v.get("attribute");
             String attrType = attrNode.get("type").asText();

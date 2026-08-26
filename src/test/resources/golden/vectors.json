@@ -946,6 +946,890 @@
       ],
       "negate": true,
       "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-feb30-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-02-30"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-feb30-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-02-30"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-feb30-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2024-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-02-30"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-nonleap-feb29-after",
+      "attribute": {
+        "type": "string",
+        "value": "2023-02-29"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-nonleap-feb29-before",
+      "attribute": {
+        "type": "string",
+        "value": "2023-02-29"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-nonleap-feb29-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2023-02-29"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-apr31-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-04-31"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-apr31-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-04-31"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-apr31-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2024-08-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-04-31"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-sep31-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-09-31"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-sep31-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-09-31"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-month-zero-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-00-01"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-month-zero-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-00-01"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-month-zero-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2024-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-00-01"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-day-zero-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-00"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-day-zero-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-00"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-day-zero-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2024-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-00"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-month-13-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-13-01"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-month-13-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-13-01"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-day-32-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-32"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-day-32-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-32"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-century-nonleap-feb29-after",
+      "attribute": {
+        "type": "string",
+        "value": "1900-02-29"
+      },
+      "operator": "After",
+      "values": [
+        "1800-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-century-nonleap-feb29-before",
+      "attribute": {
+        "type": "string",
+        "value": "1900-02-29"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-feb30-with-time-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-02-30T12:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-feb30-with-time-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-02-30T12:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-feb30-with-offset-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-02-30T00:00:00\u002B05:00"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-unreal-feb30-with-offset-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-02-30T00:00:00\u002B05:00"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-real-leap-day-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-02-29"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-real-leap-day-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-02-29"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-real-leap-day-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2024-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-02-29"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-real-century-leap-day-after",
+      "attribute": {
+        "type": "string",
+        "value": "2000-02-29"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-real-century-leap-day-before",
+      "attribute": {
+        "type": "string",
+        "value": "2000-02-29"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-real-first-day-of-year-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-01"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-real-last-day-of-year-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-12-31"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-real-last-day-of-year-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-12-31"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-year0-jan1-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0000-01-01"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-year0-jan1-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "0000-01-01"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-year0-feb29-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0000-02-29"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-year0-dec31-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0000-12-31"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-year0-dec31-lastsecond-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0000-12-31T23:59:59Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-min-bare-date-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0001-01-01"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-min-exact-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0001-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-min-exact-fraction-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0001-01-01T00:00:00.5Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-min-underflow-offset-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0001-01-01T00:00:00\u002B05:00"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-min-underflow-offset-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "0001-01-01T00:00:00\u002B05:00"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-min-boundary-offset-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0001-01-01T05:00:00\u002B05:00"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-min-underflow-1s-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0001-01-01T04:59:59\u002B05:00"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-min-boundary-maxoffset-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0001-01-01T14:00:00\u002B14:00"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-min-underflow-maxoffset-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0001-01-01T13:59:59\u002B14:00"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-max-bare-date-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "9999-12-31"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-max-exact-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "9999-12-31T23:59:59Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-max-exact-fraction-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "9999-12-31T23:59:59.999Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-max-overflow-offset-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "9999-12-31T23:59:59-05:00"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-max-overflow-offset-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "9999-12-31T23:59:59-05:00"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-max-boundary-offset-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "9999-12-31T18:59:59-05:00"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-max-overflow-1s-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "9999-12-31T19:00:00-05:00"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-max-boundary-minoffset-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "9999-12-31T09:59:59-14:00"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-year0-negate-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0000-01-01"
+      ],
+      "negate": true,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-min-underflow-offset-negate-after",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "0001-01-01T00:00:00\u002B05:00"
+      ],
+      "negate": true,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-max-overflow-offset-negate-before",
+      "attribute": {
+        "type": "string",
+        "value": "2020-01-01T00:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "9999-12-31T23:59:59-05:00"
+      ],
+      "negate": true,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-attr-year0-after",
+      "attribute": {
+        "type": "string",
+        "value": "0000-01-01"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-attr-year0-before",
+      "attribute": {
+        "type": "string",
+        "value": "0000-01-01"
+      },
+      "operator": "Before",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-attr-min-exact-before",
+      "attribute": {
+        "type": "string",
+        "value": "0001-01-01"
+      },
+      "operator": "Before",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-date-range-attr-min-underflow-offset-after",
+      "attribute": {
+        "type": "string",
+        "value": "0001-01-01T00:00:00\u002B05:00"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-attr-min-underflow-offset-before",
+      "attribute": {
+        "type": "string",
+        "value": "0001-01-01T00:00:00\u002B05:00"
+      },
+      "operator": "Before",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-attr-max-overflow-offset-after",
+      "attribute": {
+        "type": "string",
+        "value": "9999-12-31T23:59:59-05:00"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-attr-max-overflow-offset-before",
+      "attribute": {
+        "type": "string",
+        "value": "9999-12-31T23:59:59-05:00"
+      },
+      "operator": "Before",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-date-range-attr-max-boundary-after",
+      "attribute": {
+        "type": "string",
+        "value": "9999-12-31T18:59:59-05:00"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
     }
   ],
   "flagVectors": [
@@ -2322,6 +3206,840 @@
         "42"
       ],
       "negate": true,
+      "expectedMatch": false
+    }
+  ],
+  "dateGrammarVectors": [
+    {
+      "id": "dg-nonizo-us-slash-after",
+      "attribute": {
+        "type": "string",
+        "value": "05/15/2023"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-us-slash-before",
+      "attribute": {
+        "type": "string",
+        "value": "05/15/2023"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-us-slash-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "05/15/2023"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-us-slash-unpadded-after",
+      "attribute": {
+        "type": "string",
+        "value": "5/15/2023"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-us-slash-unpadded-before",
+      "attribute": {
+        "type": "string",
+        "value": "5/15/2023"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-us-slash-unpadded-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "5/15/2023"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-iso-order-slash-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024/01/01"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-iso-order-slash-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024/01/01"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-iso-order-slash-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024/01/01"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-month-abbrev-after",
+      "attribute": {
+        "type": "string",
+        "value": "Jan 1 2024"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-month-abbrev-before",
+      "attribute": {
+        "type": "string",
+        "value": "Jan 1 2024"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-month-abbrev-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "Jan 1 2024"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-month-full-after",
+      "attribute": {
+        "type": "string",
+        "value": "January 1, 2024"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-month-full-before",
+      "attribute": {
+        "type": "string",
+        "value": "January 1, 2024"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-month-full-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "January 1, 2024"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-dotted-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024.01.01"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-dotted-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024.01.01"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-dotted-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024.01.01"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-unpadded-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-1-1"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-unpadded-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-1-1"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-unpadded-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-1-1"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-rfc1123-after",
+      "attribute": {
+        "type": "string",
+        "value": "Mon, 15 May 2023 00:00:00 GMT"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-rfc1123-before",
+      "attribute": {
+        "type": "string",
+        "value": "Mon, 15 May 2023 00:00:00 GMT"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-nonizo-rfc1123-condition-value",
+      "attribute": {
+        "type": "string",
+        "value": "2023-06-01T00:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "Mon, 15 May 2023 00:00:00 GMT"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-lowercase-both-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31t09:30:00z"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-lowercase-both-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31t09:30:00z"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-lowercase-separator-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31t09:30:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-lowercase-separator-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31t09:30:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-lowercase-zone-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00z"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-lowercase-zone-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00z"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-accepted-bare-date-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-30T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-bare-date-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-02-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-extended-z-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-30T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-extended-z-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-02-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-offsetless-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-30T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-offsetless-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-02-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-space-separator-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31 09:30:00"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-30T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-space-separator-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31 09:30:00"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-02-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-seconds-omitted-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-30T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-seconds-omitted-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-02-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-extended-offset-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T14:30:00\u002B05:00"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-30T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-extended-offset-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T14:30:00\u002B05:00"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-02-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-basic-offset-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T14:30:00\u002B0500"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-30T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-basic-offset-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T14:30:00\u002B0500"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-02-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-1digit-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.5Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-31T09:30:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-1digit-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.5Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-31T09:30:01Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-2digit-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.12Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-31T09:30:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-2digit-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.12Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-31T09:30:01Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-3digit-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.123Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-31T09:30:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-3digit-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.123Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-31T09:30:01Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-4digit-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.1234Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-31T09:30:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-4digit-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.1234Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-31T09:30:01Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-5digit-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.12345Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-31T09:30:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-5digit-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.12345Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-31T09:30:01Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-6digit-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.123456Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-31T09:30:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-6digit-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.123456Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-31T09:30:01Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-9digit-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.123456789Z"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-31T09:30:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-accepted-fraction-9digit-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30:00.123456789Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-31T09:30:01Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-minutes-decimal-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30.5"
+      },
+      "operator": "After",
+      "values": [
+        "2024-01-31T09:29:59Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-minutes-decimal-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T09:30.5"
+      },
+      "operator": "Before",
+      "values": [
+        "2024-01-31T09:30:01Z"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "dg-hour-24-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T24:00:00"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-hour-24-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T24:00:00"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-hour-25-after",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T25:00:00Z"
+      },
+      "operator": "After",
+      "values": [
+        "1970-01-01T00:00:00Z"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "dg-hour-25-before",
+      "attribute": {
+        "type": "string",
+        "value": "2024-01-31T25:00:00Z"
+      },
+      "operator": "Before",
+      "values": [
+        "2100-01-01T00:00:00Z"
+      ],
+      "negate": false,
       "expectedMatch": false
     }
   ],
