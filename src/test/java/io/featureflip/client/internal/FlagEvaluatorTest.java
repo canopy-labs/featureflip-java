@@ -862,6 +862,36 @@ class FlagEvaluatorTest {
         }
     }
 
+    // #2665: the anonymous context reaches the SAME keyless guard as builder("").
+    // The guard keys off an empty bucket VALUE, and getAttribute returns the null
+    // identity for an anonymous context, which resolveServeConfig coerces to "" —
+    // so evaluation must be indistinguishable between the two spellings, and must
+    // not NPE on the null. Evaluation was never the broken half of #2665; this
+    // pins that the new constructor did not make it the broken half.
+    @Test
+    void anonymousContextServesControlVariationLikeAnEmptyUserId() {
+        WeightedVariation control = new WeightedVariation();
+        control.setKey("on");
+        control.setWeight(1);
+        WeightedVariation rest = new WeightedVariation();
+        rest.setKey("off");
+        rest.setWeight(99);
+
+        ServeConfig rollout = new ServeConfig();
+        rollout.setType(ServeType.ROLLOUT);
+        rollout.setBucketBy("userId");
+        rollout.setSalt("test-salt");
+        rollout.setVariations(List.of(control, rest));
+
+        EvaluationContext anonymous = EvaluationContext.builder().set("plan", "pro").build();
+
+        for (int i = 0; i < 20; i++) {
+            assertThat(evaluator.resolveServeConfig(rollout, anonymous))
+                .as("eval #%d", i)
+                .isEqualTo("on");
+        }
+    }
+
     private static ServeConfig rolloutServe(String salt) {
         WeightedVariation on = new WeightedVariation();
         on.setKey("on");

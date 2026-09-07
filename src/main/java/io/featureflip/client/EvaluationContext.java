@@ -12,6 +12,12 @@ public final class EvaluationContext {
         this.attributes = attributes;
     }
 
+    /**
+     * The identity this context carries, or {@code null} when it is anonymous
+     * (see {@link #builder()}).
+     *
+     * @return the user id, or {@code null} when this context is anonymous
+     */
     public String getUserId() { return userId; }
 
     public Object getAttribute(String key) {
@@ -53,9 +59,43 @@ public final class EvaluationContext {
         return new EvaluationContext(userId, new TreeMap<>(attributes));
     }
 
+    /**
+     * Starts a context identified by {@code userId}, which must not be null — use
+     * {@link #builder()} for an anonymous one.
+     *
+     * <p>Passing {@code ""} builds a context whose identity is <em>present but
+     * empty</em>. That is deliberate and unchanged by #2665: it cannot be bucketed,
+     * so a rollout serves the control variation (#1457), and analytics events carry
+     * {@code "userId": ""} — matching js, python, php and ruby, which all attribute
+     * events off a null identity rather than an empty one. A caller who never had an
+     * identity wants {@link #builder()} instead, whose events omit the field.
+     *
+     * @param userId the identity to carry; must not be null
+     * @return a builder for a context identified by {@code userId}
+     */
     public static Builder builder(String userId) {
         Objects.requireNonNull(userId, "userId must not be null");
         return new Builder(userId);
+    }
+
+    /**
+     * Starts an anonymous context: attributes, no identity.
+     *
+     * <p>Targeting rules still read the attribute bag, so an anonymous context
+     * segments normally. It cannot be bucketed, so a percentage rollout keyed on the
+     * identity serves the control variation deterministically, exactly as a keyless
+     * context does (#1457).
+     *
+     * <p>Analytics events built from such a context <strong>omit</strong>
+     * {@code userId} rather than sending an empty string, which is the shape every
+     * other SDK puts on the wire for an unattributed event (#2665). Before this
+     * existed the closest spelling was {@code builder("")}, whose events claim a
+     * present-but-empty identity — the shape #2397 removed from php.
+     *
+     * @return a builder for a context with attributes and no identity
+     */
+    public static Builder builder() {
+        return new Builder(null);
     }
 
     public static final class Builder {

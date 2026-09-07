@@ -7,7 +7,7 @@ Java SDK for [Featureflip](https://featureflip.io) - evaluate feature flags loca
 ### Gradle
 
 ```groovy
-implementation 'io.featureflip:featureflip-java:2.7.0'
+implementation 'io.featureflip:featureflip-java:2.8.0'
 ```
 
 ### Maven
@@ -16,7 +16,7 @@ implementation 'io.featureflip:featureflip-java:2.7.0'
 <dependency>
     <groupId>io.featureflip</groupId>
     <artifactId>featureflip-java</artifactId>
-    <version>2.7.0</version>
+    <version>2.8.0</version>
 </dependency>
 ```
 
@@ -102,11 +102,18 @@ System.out.println(detail.getErrorMessage());  // Error details if reason is ERR
 ```java
 // Track custom events
 client.track("checkout-completed",
-    EvaluationContext.of("123"),
+    EvaluationContext.builder("123").build(),
     Map.of("total", 99.99));
 
 // Record an identify event for analytics (does not affect flag evaluation)
 client.identify(EvaluationContext.builder("123")
+    .set("plan", "pro")
+    .build());
+
+// Anonymous: attributes, no identity. The event omits userId rather than
+// sending an empty one. Use this instead of builder("") when there is no
+// identity to carry — builder("") claims a present-but-empty identity.
+client.identify(EvaluationContext.builder()
     .set("plan", "pro")
     .build());
 

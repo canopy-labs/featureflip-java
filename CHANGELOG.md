@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.8.0 — 2026-09-03
+
+### Added
+
+- `EvaluationContext.builder()` — a no-arg builder producing an **anonymous** context: attributes, no identity. Until now `builder(userId)` was the only constructor and it rejected a null id, so a context carrying attributes with no identity could not be built at all — a shape every other SDK expresses trivially. Analytics events from such a context omit `userId` rather than sending an empty string. (#2665)
+
+  The workaround this replaces was actively wrong on the wire. A caller wanting an anonymous event with attributes had two spellings and both were broken: `identify(null)` omitted `userId` correctly but a null context carries no attributes, while `identify(builder("").set(…))` carried the attributes but emitted `"userId": ""` — a present-but-empty identity, the exact shape #2397 removed from the PHP SDK. Ordinary evaluation pushed callers toward the broken one, since `builder("")` is how a keyless context was spelled: **evaluation was always correct** (an empty bucket value serves the control variation, #1457), so a caller doing the supported thing for anonymous *evaluation* silently emitted non-conforming *events*.
+
+  `builder("")` is **unchanged** and still carries a present-but-empty identity. That is deliberate: the JS, Python, PHP and Ruby SDKs all attribute events off a *null* identity rather than an empty one, so an explicit `""` reaches the wire in four of the five map-context SDKs; only Go drops it, and by accident of `omitempty` rather than by an absent-vs-empty decision. Folding `""` into "absent" here would have silently changed the wire shape for existing callers to match the one SDK that never decided it.
+
 ## 2.7.0 — 2026-08-26
 
 ### Changed

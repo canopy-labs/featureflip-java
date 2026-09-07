@@ -3207,6 +3207,123 @@
       ],
       "negate": true,
       "expectedMatch": false
+    },
+    {
+      "id": "oc-lowercase-single-word",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "equals",
+      "values": [
+        "US"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "oc-lowercase-multi-word",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "notequals",
+      "values": [
+        "CA"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "oc-snake-case-multi-word",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "not_equals",
+      "values": [
+        "CA"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "oc-upper-case-multi-word",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "NOTEQUALS",
+      "values": [
+        "CA"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "oc-screaming-snake-multi-word",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "NOT_EQUALS",
+      "values": [
+        "CA"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "oc-negated-lowercase-multi-word",
+      "attribute": {
+        "type": "string",
+        "value": "US"
+      },
+      "operator": "notequals",
+      "values": [
+        "US"
+      ],
+      "negate": true,
+      "expectedMatch": true
+    },
+    {
+      "id": "oc-mis-cased-regex-stays-case-sensitive",
+      "attribute": {
+        "type": "string",
+        "value": "ABC"
+      },
+      "operator": "matchesregex",
+      "values": [
+        "abc"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "oc-mis-cased-regex-matches",
+      "attribute": {
+        "type": "string",
+        "value": "ABC"
+      },
+      "operator": "matchesregex",
+      "values": [
+        "ABC"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "oc-snake-case-numeric-equality",
+      "attribute": {
+        "type": "number",
+        "value": 1.0
+      },
+      "operator": "not_equals",
+      "values": [
+        "2"
+      ],
+      "negate": false,
+      "expectedMatch": true
     }
   ],
   "dateGrammarVectors": [
@@ -4763,5 +4880,256 @@
         }
       }
     ]
-  }
+  },
+  "eventPayloadVectors": [
+    {
+      "id": "ep-identify-forwards-attributes",
+      "description": "identify() promotes the identity to top-level userId and forwards the remaining attributes as metadata (#2359)",
+      "kind": "identify",
+      "context": {
+        "user_id": "user-1",
+        "plan": "pro",
+        "email": "ada@example.com"
+      },
+      "expect": {
+        "type": "Identify",
+        "flagKey": "$identify",
+        "userId": "user-1",
+        "metadata": {
+          "plan": "pro",
+          "email": "ada@example.com"
+        }
+      }
+    },
+    {
+      "id": "ep-identify-strips-alias-from-metadata",
+      "description": "The userId alias resolves to the top-level field and is stripped from the bag, so the identity is carried once",
+      "kind": "identify",
+      "requires": [
+        "mapContext"
+      ],
+      "context": {
+        "userId": "user-1",
+        "plan": "pro"
+      },
+      "expect": {
+        "type": "Identify",
+        "flagKey": "$identify",
+        "userId": "user-1",
+        "metadata": {
+          "plan": "pro"
+        }
+      }
+    },
+    {
+      "id": "ep-identify-canonical-identity-wins",
+      "description": "A context carrying BOTH spellings attributes to user_id, and strips both from the bag",
+      "kind": "identify",
+      "requires": [
+        "mapContext"
+      ],
+      "context": {
+        "user_id": "canonical",
+        "userId": "alias",
+        "plan": "pro"
+      },
+      "expect": {
+        "type": "Identify",
+        "flagKey": "$identify",
+        "userId": "canonical",
+        "metadata": {
+          "plan": "pro"
+        }
+      }
+    },
+    {
+      "id": "ep-identify-omits-empty-metadata",
+      "description": "An attribute-less identify() omits metadata rather than sending an empty bag",
+      "kind": "identify",
+      "context": {
+        "user_id": "user-1"
+      },
+      "expect": {
+        "type": "Identify",
+        "flagKey": "$identify",
+        "userId": "user-1"
+      }
+    },
+    {
+      "id": "ep-identify-omits-absent-user-id",
+      "description": "An anonymous identify() omits userId rather than claiming a present-but-empty identity",
+      "kind": "identify",
+      "requires": [
+        "anonymousContext"
+      ],
+      "context": {
+        "plan": "pro"
+      },
+      "expect": {
+        "type": "Identify",
+        "flagKey": "$identify",
+        "metadata": {
+          "plan": "pro"
+        }
+      }
+    },
+    {
+      "id": "ep-identify-anonymous-and-attributeless",
+      "description": "Both optional fields absent at once leaves the irreducible event: type, flagKey and timestamp",
+      "kind": "identify",
+      "context": {},
+      "expect": {
+        "type": "Identify",
+        "flagKey": "$identify"
+      }
+    },
+    {
+      "id": "ep-identify-preserves-metadata-value-types",
+      "description": "Attribute values keep their JSON types through the bag - numbers do not stringify and nested shapes survive",
+      "kind": "identify",
+      "context": {
+        "user_id": "user-1",
+        "seats": 3,
+        "ratio": 1.5,
+        "active": true,
+        "org": {
+          "tier": "gold"
+        },
+        "tags": [
+          "beta",
+          "eu"
+        ]
+      },
+      "expect": {
+        "type": "Identify",
+        "flagKey": "$identify",
+        "userId": "user-1",
+        "metadata": {
+          "seats": 3,
+          "ratio": 1.5,
+          "active": true,
+          "org": {
+            "tier": "gold"
+          },
+          "tags": [
+            "beta",
+            "eu"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ep-track-carries-the-callers-bag",
+      "description": "track() sends the caller\u0027s bag verbatim under Custom, keyed by the event name",
+      "kind": "track",
+      "eventKey": "purchase",
+      "context": {
+        "user_id": "user-1"
+      },
+      "metadata": {
+        "amount": 10,
+        "currency": "USD"
+      },
+      "expect": {
+        "type": "Custom",
+        "flagKey": "purchase",
+        "userId": "user-1",
+        "metadata": {
+          "amount": 10,
+          "currency": "USD"
+        }
+      }
+    },
+    {
+      "id": "ep-track-does-not-forward-context-attributes",
+      "description": "Only the explicit bag reaches metadata - track() never forwards the context\u0027s attributes, unlike identify()",
+      "kind": "track",
+      "eventKey": "purchase",
+      "context": {
+        "user_id": "user-1",
+        "email": "ada@example.com",
+        "plan": "pro"
+      },
+      "metadata": {
+        "amount": 10
+      },
+      "expect": {
+        "type": "Custom",
+        "flagKey": "purchase",
+        "userId": "user-1",
+        "metadata": {
+          "amount": 10
+        }
+      }
+    },
+    {
+      "id": "ep-track-omits-absent-metadata",
+      "description": "An argument-less track() omits metadata entirely",
+      "kind": "track",
+      "eventKey": "signup_completed",
+      "context": {
+        "user_id": "user-1"
+      },
+      "expect": {
+        "type": "Custom",
+        "flagKey": "signup_completed",
+        "userId": "user-1"
+      }
+    },
+    {
+      "id": "ep-track-omits-empty-metadata",
+      "description": "An explicitly empty bag is omitted too, so it puts the same bytes on the wire as an argument-less call",
+      "kind": "track",
+      "eventKey": "checkout_started",
+      "context": {
+        "user_id": "user-1"
+      },
+      "metadata": {},
+      "expect": {
+        "type": "Custom",
+        "flagKey": "checkout_started",
+        "userId": "user-1"
+      }
+    },
+    {
+      "id": "ep-track-omits-absent-user-id",
+      "description": "An anonymous track() omits userId while still carrying the bag",
+      "kind": "track",
+      "eventKey": "purchase",
+      "context": {},
+      "metadata": {
+        "amount": 10
+      },
+      "expect": {
+        "type": "Custom",
+        "flagKey": "purchase",
+        "metadata": {
+          "amount": 10
+        }
+      }
+    },
+    {
+      "id": "ep-track-honours-identity-alias",
+      "description": "track() resolves the userId alias too - the evaluator aliases it for bucketing, so events must as well",
+      "kind": "track",
+      "requires": [
+        "mapContext"
+      ],
+      "eventKey": "purchase",
+      "context": {
+        "userId": "user-1"
+      },
+      "metadata": {
+        "amount": 10
+      },
+      "expect": {
+        "type": "Custom",
+        "flagKey": "purchase",
+        "userId": "user-1",
+        "metadata": {
+          "amount": 10
+        }
+      }
+    }
+  ]
 }
