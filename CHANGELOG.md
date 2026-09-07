@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.9.0 — 2026-09-06
+
+### Added
+
+- `FeatureflipClient.onUpdate(FlagUpdateListener)` — subscribe to flag-configuration changes. The listener is called with the flag keys whose evaluated value may have moved, batched into one call per update, and the returned action unsubscribes (idempotently; subscriptions are also dropped when the client is closed). Brings Java level with the JS, Python and Go SDKs, and is what lets the OpenFeature provider emit `PROVIDER_CONFIGURATION_CHANGED`. (#1867)
+
+  The reported set is deliberately wider than "flags whose own config changed", because two kinds of movement leave no trace on the flag that moved. A **segment** edit changes what a rule matches without touching — or versioning — any flag that references it. A **prerequisite** toggle bumps only the prerequisite's version, while every dependent flips to its off variation with `PREREQUISITE_FAILED`. Both are followed, the second transitively, so a listener that re-reads what it is told about sees every value that actually changed.
+
+  The initial flag load does not fire — a cold start is not a change — and neither does a snapshot identical to the one held. That second point is load-bearing rather than an optimization: the store is handed a full snapshot on every poll tick and on every SSE reconnect, so without the comparison a listener would fire once per poll interval forever. Comparison is structural over the serialized configuration rather than a version check, since a segment edit moves a flag's value without moving its version.
+
+- `FeatureflipClient.jsonVariationDetail(key, context, defaultValue, type)` — the detail counterpart of `jsonVariation`. Until now JSON was the one flag type whose evaluation reason, rule id and served variation key were unreachable: every other type had a `*VariationDetail` twin and JSON did not.
+
+  Passing `Object.class` reads a value without asserting its type, yielding the plain Java shapes Jackson produces (`Map`, `List`, `String`, `Integer`, `Double`, `Boolean`). That form cannot fail as a type mismatch, which is what lets a caller — the OpenFeature provider being the first — distinguish a genuine evaluation error from a value of the wrong type. The typed accessors fold both into `ERROR`.
+
+### Fixed
+
+- The README's quickstart did not compile. It reached for `EvaluationContext.of(...)`, a factory this SDK has never had, in three of its examples — including the very first one — so anyone copying the getting-started snippet hit `cannot find symbol` before they hit anything else. All three now use `EvaluationContext.builder(userId).build()`, which is what the API actually offers.
+
 ## 2.8.0 — 2026-09-03
 
 ### Added

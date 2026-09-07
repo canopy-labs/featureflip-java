@@ -4,8 +4,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
@@ -38,6 +41,16 @@ public final class FeatureflipClient implements AutoCloseable {
 
     private final SharedFeatureflipCore core;
     private final AtomicBoolean closed = new AtomicBoolean(false);
+
+    /**
+     * This handle's flag-update subscriptions, dropped when it is closed.
+     *
+     * <p>Tracked per handle rather than per core because the core may outlive this
+     * handle — another handle sharing the same SDK key keeps it alive, and its data
+     * sources keep running — so a listener left registered would go on firing for a
+     * client the caller has already closed.
+     */
+    private final CopyOnWriteArrayList<Runnable> subscriptions = new CopyOnWriteArrayList<>();
 
     /** Internal constructor used by the Builder and the static factory. */
     FeatureflipClient(SharedFeatureflipCore core) {
@@ -244,6 +257,78 @@ public final class FeatureflipClient implements AutoCloseable {
         return evaluate(key, context, defaultValue, Double.class);
     }
 
+    /**
+     * The detail counterpart of {@link #jsonVariation(String, EvaluationContext, Object, Class)}
+     * — the served value together with the reason, rule id, variation key and
+     * prerequisite key behind it.
+     *
+     * <p>Pass {@code Object.class} to read a value without asserting its type: the
+     * served JSON arrives as the plain Java shapes Jackson produces
+     * ({@code Map}, {@code List}, {@code String}, {@code Integer}, {@code Double},
+     * {@code Boolean}), and no read can then fail as a type mismatch. That is what a
+     * caller wants when it means to inspect or coerce the value itself — the
+     * OpenFeature provider does exactly this, so that it can report
+     * {@code TYPE_MISMATCH} distinctly from a genuine evaluation error, which the
+     * typed accessors above fold together into {@link EvaluationReason#ERROR}.
+     *
+     * @param type the type to deserialize the served value into
+     * @param <T>  the value type
+     */
+    public <T> EvaluationDetail<T> jsonVariationDetail(String key, EvaluationContext context,
+                                                       T defaultValue, Class<T> type) {
+        return evaluate(key, context, defaultValue, type);
+    }
+
+    // --- Flag Update Subscription ---
+
+    /**
+     * Subscribes to flag-configuration changes.
+     *
+     * <p>The listener is called with the flag keys whose configuration changed,
+     * batched into one call per update. It fires on the SDK's streaming or polling
+     * thread, so it must not block: a slow listener delays flag delivery and, on the
+     * SSE path, can stall the connection.
+     *
+     * <p>The initial flag load does NOT fire — a cold start is not a change. Only
+     * later updates do. Keys are reported when a flag is added, removed or modified,
+     * and additionally for flags dragged along by the change: those referencing an
+     * edited segment, and those depending on a changed flag through a prerequisite
+     * (their evaluated value moves even though their own configuration did not).
+     *
+     * <p>An exception thrown by a listener is logged and swallowed; it does not
+     * affect flag delivery or the other listeners.
+     *
+     * <p>The returned action unsubscribes and is idempotent. Subscriptions are also
+     * dropped when this client is closed, so a caller that closes its client need not
+     * unsubscribe first.
+     *
+     * <pre>{@code
+     * Runnable unsubscribe = client.onUpdate(keys -> log.info("flags changed: {}", keys));
+     * // ...
+     * unsubscribe.run();
+     * }</pre>
+     *
+     * @param listener the listener to register; null is ignored
+     * @return an idempotent unsubscribe action
+     */
+    public Runnable onUpdate(FlagUpdateListener listener) {
+        // Nothing will ever fire for a closed handle, so hand back a no-op rather than
+        // registering a listener on a core this handle no longer participates in.
+        if (listener == null || closed.get()) {
+            return () -> { };
+        }
+
+        Runnable unsubscribe = core.addUpdateListener(listener);
+        AtomicBoolean done = new AtomicBoolean(false);
+        Runnable idempotent = () -> {
+            if (done.compareAndSet(false, true)) {
+                unsubscribe.run();
+            }
+        };
+        subscriptions.add(idempotent);
+        return idempotent;
+    }
+
     // --- Event Tracking ---
 
     public void track(String eventName, EvaluationContext context, Map<String, Object> metadata) {
@@ -276,6 +361,14 @@ public final class FeatureflipClient implements AutoCloseable {
     @Override
     public void close() {
         if (!closed.compareAndSet(false, true)) return;
+        // Dropped before the core is released: the core may survive (another handle
+        // holds it) and its data sources keep running, so a listener left registered
+        // would go on firing for a client the caller has already closed.
+        List<Runnable> pending = new ArrayList<>(subscriptions);
+        subscriptions.clear();
+        for (Runnable unsubscribe : pending) {
+            unsubscribe.run();
+        }
         core.release();
     }
 

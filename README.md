@@ -7,7 +7,7 @@ Java SDK for [Featureflip](https://featureflip.io) - evaluate feature flags loca
 ### Gradle
 
 ```groovy
-implementation 'io.featureflip:featureflip-java:2.8.0'
+implementation 'io.featureflip:featureflip-java:2.9.0'
 ```
 
 ### Maven
@@ -16,7 +16,7 @@ implementation 'io.featureflip:featureflip-java:2.8.0'
 <dependency>
     <groupId>io.featureflip</groupId>
     <artifactId>featureflip-java</artifactId>
-    <version>2.8.0</version>
+    <version>2.9.0</version>
 </dependency>
 ```
 
@@ -30,7 +30,7 @@ FeatureflipClient client = FeatureflipClient.get("your-sdk-key");
 client.waitForInitialization();
 
 boolean enabled = client.boolVariation("my-feature",
-    EvaluationContext.of("user-123"), false);
+    EvaluationContext.builder("user-123").build(), false);
 
 if (enabled) {
     System.out.println("Feature is enabled!");
@@ -66,7 +66,7 @@ The SDK key can also be supplied through the `FEATUREFLIP_SDK_KEY` environment v
 ## Evaluation
 
 ```java
-EvaluationContext context = EvaluationContext.of("user-123");
+EvaluationContext context = EvaluationContext.builder("user-123").build();
 
 // Boolean flag
 boolean enabled = client.boolVariation("feature-key", context, false);
@@ -89,13 +89,45 @@ UiConfig config = client.jsonVariation("ui-config", context,
 
 ```java
 EvaluationDetail<Boolean> detail = client.boolVariationDetail(
-    "feature-key", EvaluationContext.of("123"), false);
+    "feature-key", EvaluationContext.builder("123").build(), false);
 
 System.out.println(detail.getValue());        // The evaluated value
 System.out.println(detail.getReason());        // RULE_MATCH, FALLTHROUGH, FLAG_DISABLED, etc.
 System.out.println(detail.getRuleId());        // Rule ID if reason is RULE_MATCH
 System.out.println(detail.getErrorMessage());  // Error details if reason is ERROR
 ```
+
+JSON flags have a detail accessor too. Read one as `Object` to get the served
+value in its plain Java shape (`Map`, `List`, `String`, `Integer`, `Double`,
+`Boolean`) without asserting a type up front:
+
+```java
+EvaluationDetail<Object> detail = client.jsonVariationDetail(
+    "ui-config", context, null, Object.class);
+```
+
+## Reacting to Flag Changes
+
+Subscribe to configuration changes to invalidate a cache, re-render, or log:
+
+```java
+Runnable unsubscribe = client.onUpdate(flagKeys ->
+    log.info("flags changed: {}", flagKeys));
+
+// later
+unsubscribe.run();
+```
+
+The listener receives the keys whose evaluated value may have moved, batched
+into one call per update. That includes flags dragged along by a change they do
+not themselves record: those targeting an edited segment, and those whose
+prerequisite moved.
+
+The initial flag load does not fire -- a cold start is not a change. The
+listener runs on the SDK's streaming or polling thread, so it must not block;
+hand anything substantial to your own executor. Subscriptions are dropped when
+the client is closed, so a caller using try-with-resources need not
+unsubscribe.
 
 ## Event Tracking
 
@@ -152,6 +184,7 @@ client.boolVariation("unknown", context, false);         // false (default)
 
 - **Local evaluation** - Near-zero latency after initialization
 - **Real-time updates** - SSE streaming with automatic polling fallback
+- **Change notifications** - `onUpdate` listeners for configuration changes
 - **Event tracking** - Automatic batching and background flushing
 - **Test support** - `forTesting()` factory for deterministic unit tests
 - **AutoCloseable** - Works with try-with-resources

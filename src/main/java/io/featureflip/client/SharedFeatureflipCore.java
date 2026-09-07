@@ -342,6 +342,26 @@ final class SharedFeatureflipCore {
         return initialized.get();
     }
 
+    /**
+     * Subscribes to flag-configuration changes; see
+     * {@link FeatureflipClient#onUpdate(FlagUpdateListener)}.
+     *
+     * <p>Registered on the store rather than here, because the store is the one
+     * choke point every data source writes through.
+     *
+     * @return an idempotent unsubscribe action
+     */
+    Runnable addUpdateListener(FlagUpdateListener listener) {
+        // A fixed-value stub client ({@link FeatureflipClient#forTesting}) has no
+        // store, so there is nothing that could ever report a change. A no-op keeps
+        // onUpdate callable against a stub — code under test should not have to know
+        // which kind of client it was handed — rather than throwing.
+        if (store == null) {
+            return () -> { };
+        }
+        return store.addUpdateListener(listener);
+    }
+
     void waitForInitialization() {
         if (isInitialized()) return;
         try {
