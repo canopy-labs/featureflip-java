@@ -21,7 +21,7 @@ repositories {
 }
 
 dependencies {
-    api("org.slf4j:slf4j-api:2.0.18")
+    api("org.slf4j:slf4j-api:2.0.19")
 
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
     implementation("com.squareup.okhttp3:okhttp-sse:5.5.0")
@@ -32,7 +32,7 @@ dependencies {
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("com.squareup.okhttp3:mockwebserver3-junit5:5.5.0")
     testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("org.slf4j:slf4j-simple:2.0.18")
+    testImplementation("org.slf4j:slf4j-simple:2.0.19")
 }
 
 tasks.withType<JavaCompile>().configureEach {

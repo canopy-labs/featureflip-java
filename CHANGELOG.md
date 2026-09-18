@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.10.0 — 2026-09-18
+
+### Fixed
+
+- The polling fallback no longer ends the SSE stream. After five consecutive failures — about 31 seconds of unreachability, so an edge incident, a bad deploy or a network partition — `SseDataSource` handed over to a polling fallback and scheduled no further reconnect, and nothing else re-opened the stream: every affected JVM lost real-time updates until the process restarted, and polled `/v1/sdk/flags` every 30 seconds indefinitely. Flag changes, kill switches included, then arrived up to a poll interval late. Polling is now additive — it covers the outage while the stream keeps retrying underneath at the capped, jittered backoff, and the next delivered `sync` retires the poller. Retiring it matters as much as arming it: a poller left running beside a healthy stream reverts SSE deltas with its own whole-store replaces, and a second outage falls back again. (#3071)
+
 ## 2.9.0 — 2026-09-06
 
 ### Added

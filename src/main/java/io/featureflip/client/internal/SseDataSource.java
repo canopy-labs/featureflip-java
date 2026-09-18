@@ -37,23 +37,36 @@ public final class SseDataSource {
     private final ObjectMapper objectMapper;
     private final Runnable onInitialized;
     private final Runnable onFallbackToPolling;
+    private final Runnable onStreamRecovered;
     private final ScheduledExecutorService executor;
     private final AtomicReference<EventSource> eventSourceRef = new AtomicReference<>();
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
     // True once a stream has opened, cleared when it fails. Distinguishes a routine
     // sever of a working stream from one that never carried any configuration (#2457).
     private final AtomicBoolean streamOpened = new AtomicBoolean(false);
+    // True between handing over to the polling fallback and the next `sync`. Gates the
+    // recovery signal so it fires once per outage, not on every routine re-sync.
+    private final AtomicBoolean polledFallbackActive = new AtomicBoolean(false);
     private volatile boolean closed = false;
 
+    /** Retained overload: a source with no recovery signal never retires its fallback. */
     public SseDataSource(FlagHttpClient httpClient, FlagStore store,
                          ScheduledExecutorService executor,
                          Runnable onInitialized, Runnable onFallbackToPolling) {
+        this(httpClient, store, executor, onInitialized, onFallbackToPolling, () -> { });
+    }
+
+    public SseDataSource(FlagHttpClient httpClient, FlagStore store,
+                         ScheduledExecutorService executor,
+                         Runnable onInitialized, Runnable onFallbackToPolling,
+                         Runnable onStreamRecovered) {
         this.httpClient = httpClient;
         this.store = store;
         this.objectMapper = httpClient.objectMapper;
         this.executor = executor;
         this.onInitialized = onInitialized;
         this.onFallbackToPolling = onFallbackToPolling;
+        this.onStreamRecovered = onStreamRecovered;
     }
 
     public void start() {
@@ -132,10 +145,17 @@ public final class SseDataSource {
                     log.warn("SSE connection failed (attempt {}): {}", failures, cause);
                 }
 
+                // The fallback is ADDITIVE, never terminal (#3071). Polling covers the
+                // outage; the stream keeps retrying underneath at the capped backoff, and
+                // the next `sync` retires the poller. Returning here instead left every
+                // instance polling — and blind to real-time updates — until it restarted,
+                // after only ~31s of unreachability.
                 if (failures >= MAX_CONSECUTIVE_FAILURES) {
-                    log.warn("SSE failed {} consecutive times, falling back to polling", failures);
-                    onFallbackToPolling.run();
-                    return;
+                    if (polledFallbackActive.compareAndSet(false, true)) {
+                        log.warn("SSE failed {} consecutive times, falling back to polling "
+                            + "while the stream keeps retrying", failures);
+                        onFallbackToPolling.run();
+                    }
                 }
                 reconnect();
             }
@@ -247,5 +267,12 @@ public final class SseDataSource {
         onInitialized.run();
         log.debug("SSE sync: replaced store with {} flags, {} segments",
             flags != null ? flags.size() : 0, segments != null ? segments.size() : 0);
+
+        // The stream is carrying configuration again, so the fallback poller has nothing
+        // left to cover. Signalled off the `sync` rather than off onOpen: a connection
+        // that opens and is severed before replaying its snapshot has recovered nothing.
+        if (polledFallbackActive.compareAndSet(true, false)) {
+            onStreamRecovered.run();
+        }
     }
 }

@@ -220,7 +220,7 @@ final class SharedFeatureflipCore {
 
         if (config.isStreaming()) {
             this.sseDataSource = new SseDataSource(httpClient, store, executor,
-                initCallback, this::startPolling);
+                initCallback, this::startPolling, this::stopFallbackPolling);
             this.pollingDataSource = null;
             executor.execute(() -> sseDataSource.start());
         } else {
@@ -825,7 +825,12 @@ final class SharedFeatureflipCore {
         return TimeUnit.MILLISECONDS.toNanos(interval.toMillis());
     }
 
-    private void startPolling() {
+    /**
+     * Starts the polling fallback that covers an SSE outage. Package-private rather than
+     * private so the fallback's lifecycle can be driven directly in tests — reproducing it
+     * through a real stream costs five jittered backoffs (~31s) of wall clock.
+     */
+    void startPolling() {
         if (isShutDown()) return;
         Runnable initCallback = () -> {
             if (initialized.compareAndSet(false, true)) {
@@ -838,6 +843,26 @@ final class SharedFeatureflipCore {
             log.info("Starting polling fallback");
             poller.start();
         }
+    }
+
+    /**
+     * Retires the polling fallback once the stream is carrying configuration again (#3071).
+     *
+     * <p>Clears the reference as well as cancelling the task, so a later outage falls back
+     * again — {@link #startPolling()} is guarded by a compare-and-set against null, and
+     * leaving a dead poller parked there would make the second outage uncovered.
+     */
+    void stopFallbackPolling() {
+        PollingDataSource poller = fallbackPoller.getAndSet(null);
+        if (poller != null) {
+            poller.close();
+            log.info("SSE stream recovered, stopping polling fallback");
+        }
+    }
+
+    /** Whether a polling fallback is currently running. For testing/diagnostics only. */
+    boolean hasFallbackPoller() {
+        return fallbackPoller.get() != null;
     }
 
     // -------------------------------------------------------------------------
