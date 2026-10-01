@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.10.1 — 2026-10-01
+
+### Changed
+
+- Dependency updates: `jackson-databind` and `jackson-datatype-jsr310` 2.22.2 → 2.22.3, and `slf4j-api` 2.0.19 → 2.0.20. No API or behavior changes.
+
 ## 2.10.0 — 2026-09-18
 
 ### Fixed

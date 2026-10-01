@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.featureflip"
-version = "2.7.0"
+version = "2.10.1"
 
 java {
     toolchain {
@@ -21,18 +21,18 @@ repositories {
 }
 
 dependencies {
-    api("org.slf4j:slf4j-api:2.0.19")
+    api("org.slf4j:slf4j-api:2.0.20")
 
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
     implementation("com.squareup.okhttp3:okhttp-sse:5.5.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.2")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.2")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.3")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.14.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
     testImplementation("com.squareup.okhttp3:mockwebserver3-junit5:5.5.0")
     testImplementation("org.assertj:assertj-core:3.27.7")
-    testImplementation("org.slf4j:slf4j-simple:2.0.19")
+    testImplementation("org.slf4j:slf4j-simple:2.0.20")
 }
 
 tasks.withType<JavaCompile>().configureEach {
