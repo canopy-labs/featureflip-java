@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.11.0 — 2026-10-20
+
+### Added
+
+- Every request now sends `User-Agent: featureflip-java/<version>`, on the flag fetch, event post and SSE stream alike. The SDK previously sent OkHttp's default `okhttp/<x>`, which the Android SDK sends too, so Java usage could not be told apart from Android or from anything else built on OkHttp. The version is stamped at build time from the version the release tag sets, so it cannot go stale between releases. (#4140)
+- `FeatureFlagConfig.Builder.wrapper(name, version)`, for libraries that wrap this SDK (an OpenFeature provider, an internal platform client). The wrapper's token follows the SDK's in the User-Agent, e.g. `featureflip-java/<version> my-wrapper/1.0.0`. An invalid token is ignored with a warning rather than failing construction. (#4140)
+
 ## 2.10.1 — 2026-10-01
 
 ### Changed

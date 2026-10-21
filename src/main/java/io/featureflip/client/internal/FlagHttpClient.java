@@ -125,12 +125,18 @@ public final class FlagHttpClient {
             .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
             .addHandler(UNKNOWN_ENUM_NAME_HANDLER);
 
+        // Built once. The SSE client is derived from this one with newBuilder(), so it
+        // inherits the interceptor below and every request path carries the identity.
+        String userAgent = SdkIdentity.userAgent(config);
         this.httpClient = new OkHttpClient.Builder()
             .connectTimeout(config.getConnectTimeout().toMillis(), TimeUnit.MILLISECONDS)
             .readTimeout(config.getReadTimeout().toMillis(), TimeUnit.MILLISECONDS)
             .addInterceptor(chain -> {
                 Request request = chain.request().newBuilder()
                     .addHeader("Authorization", sdkKey)
+                    // header(), not addHeader(): replaces OkHttp's default okhttp/<x>,
+                    // which the Android SDK also sends (#4140).
+                    .header("User-Agent", userAgent)
                     .build();
                 return chain.proceed(request);
             })

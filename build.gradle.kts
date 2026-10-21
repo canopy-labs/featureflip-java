@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.featureflip"
-version = "2.10.1"
+version = "2.11.0"
 
 java {
     toolchain {
@@ -33,6 +33,17 @@ dependencies {
     testImplementation("com.squareup.okhttp3:mockwebserver3-junit5:5.5.0")
     testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("org.slf4j:slf4j-simple:2.0.20")
+}
+
+// The SDK reports its version in the User-Agent (#4140). publish-java-sdk.yml seds the
+// `version` above from the release tag, so stamping it into a resource keeps the two in
+// step instead of duplicating it in source, where it would drift (#2141).
+tasks.processResources {
+    val sdkVersion = project.version.toString()
+    inputs.property("version", sdkVersion)
+    filesMatching("io/featureflip/client/featureflip-sdk.properties") {
+        expand("version" to sdkVersion)
+    }
 }
 
 tasks.withType<JavaCompile>().configureEach {

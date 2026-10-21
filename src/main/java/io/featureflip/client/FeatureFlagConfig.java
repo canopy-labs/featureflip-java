@@ -15,6 +15,8 @@ public final class FeatureFlagConfig {
     private final int flushBatchSize;
     private final Duration initTimeout;
     private final List<EvaluationInspector> inspectors;
+    private final String wrapperName;
+    private final String wrapperVersion;
 
     private FeatureFlagConfig(Builder builder) {
         this.baseUrl = builder.baseUrl.replaceAll("/+$", "");
@@ -26,6 +28,8 @@ public final class FeatureFlagConfig {
         this.flushBatchSize = builder.flushBatchSize;
         this.initTimeout = builder.initTimeout;
         this.inspectors = normalizeInspectors(builder.inspectors);
+        this.wrapperName = builder.wrapperName;
+        this.wrapperVersion = builder.wrapperVersion;
     }
 
     /**
@@ -63,6 +67,12 @@ public final class FeatureFlagConfig {
      */
     public List<EvaluationInspector> getInspectors() { return inspectors; }
 
+    /** Name of the library wrapping this SDK, or {@code null}. See {@link Builder#wrapper}. */
+    public String getWrapperName() { return wrapperName; }
+
+    /** Version of the wrapping library, or {@code null}. See {@link Builder#wrapper}. */
+    public String getWrapperVersion() { return wrapperVersion; }
+
     public static Builder builder() {
         return new Builder();
     }
@@ -77,6 +87,8 @@ public final class FeatureFlagConfig {
         private int flushBatchSize = 100;
         private Duration initTimeout = Duration.ofSeconds(10);
         private List<EvaluationInspector> inspectors = Collections.emptyList();
+        private String wrapperName;
+        private String wrapperVersion;
 
         public Builder baseUrl(String baseUrl) { this.baseUrl = baseUrl; return this; }
         public Builder connectTimeout(Duration connectTimeout) { this.connectTimeout = connectTimeout; return this; }
@@ -97,6 +109,28 @@ public final class FeatureFlagConfig {
          * are dropped. Passing {@code null} clears the inspectors.
          */
         public Builder inspectors(List<EvaluationInspector> inspectors) { this.inspectors = inspectors; return this; }
+
+        /**
+         * Identifies a library that wraps this SDK, such as an OpenFeature provider. Its
+         * token is sent after the SDK's own in the User-Agent
+         * ({@code featureflip-java/<version> my-wrapper/1.0.0}) so usage through the
+         * wrapper can be counted. Both parts must be valid HTTP tokens; an invalid wrapper
+         * is ignored with a warning. {@code version} may be {@code null}. Leave unset when
+         * calling the SDK directly.
+         *
+         * <p>Not part of the "different config" check: it identifies the caller rather than
+         * changing behavior, so a wrapper sharing an SDK key with the host application does
+         * not warn. Like every other option, honored on the first {@code get()} per SDK key.
+         *
+         * @param name the wrapper's product name, e.g. {@code featureflip-openfeature-java}
+         * @param version the wrapper's version, or {@code null}
+         * @return this builder
+         */
+        public Builder wrapper(String name, String version) {
+            this.wrapperName = name;
+            this.wrapperVersion = version;
+            return this;
+        }
 
         public FeatureFlagConfig build() {
             return new FeatureFlagConfig(this);

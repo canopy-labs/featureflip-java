@@ -191,7 +191,8 @@ public final class FeatureflipClient implements AutoCloseable {
      * Structural comparison of two configs, used only to warn when a later
      * {@code get()} passes meaningfully different options. Inspectors are
      * deliberately excluded — callbacks aren't structurally comparable, and a
-     * differing lambda must not trigger a spurious "different options" warning.
+     * differing lambda must not trigger a spurious "different options" warning. The
+     * wrapper is excluded too: it identifies the caller rather than changing behavior.
      */
     private static boolean configsEqual(FeatureFlagConfig a, FeatureFlagConfig b) {
         if (a == b) return true;
