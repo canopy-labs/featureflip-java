@@ -207,7 +207,7 @@ class InspectorTest {
 
             assertEquals(Boolean.FALSE, detail.getValue());
             assertEquals(EvaluationReason.ERROR, detail.getReason());
-            assertEquals("rule-123", detail.getRuleId());
+            assertNull(detail.getRuleId()); // an unknown served variation is Error with no rule id (#4236)
 
             assertEquals(1, events.size());
             EvaluationEvent event = events.get(0);

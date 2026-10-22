@@ -35,6 +35,23 @@ public final class EvaluationContext {
     }
 
     /**
+     * The value a percentage rollout buckets on. Public only so the evaluator in the
+     * {@code internal} package can reach it; not part of the supported API.
+     *
+     * <p>Same as {@link #getAttribute(String)}, except that when the key is the
+     * {@code userId}/{@code user_id} alias and this context has no identity, an attribute set
+     * under that exact key is used, as the Evaluation API's bucket path does (#4236).
+     * Condition evaluation keeps {@link #getAttribute(String)}.
+     */
+    public Object getBucketAttribute(String key) {
+        Object value = getAttribute(key);
+        if (value == null && (key.equals("userId") || key.equals("user_id"))) {
+            return attributes.get(key);
+        }
+        return value;
+    }
+
+    /**
      * The custom attributes, excluding the built-in user id. Package-private:
      * only {@link SharedFeatureflipCore#identify} needs the whole bag, to carry
      * it as an identify event's metadata.
@@ -65,7 +82,8 @@ public final class EvaluationContext {
      *
      * <p>Passing {@code ""} builds a context whose identity is <em>present but
      * empty</em>. That is deliberate and unchanged by #2665: it cannot be bucketed,
-     * so a rollout serves the control variation (#1457), and analytics events carry
+     * so a percentage rollout skips it and evaluation continues with the next rule
+     * or the fallthrough (#4236), and analytics events carry
      * {@code "userId": ""} — matching js, python, php and ruby, which all attribute
      * events off a null identity rather than an empty one. A caller who never had an
      * identity wants {@link #builder()} instead, whose events omit the field.
@@ -83,8 +101,8 @@ public final class EvaluationContext {
      *
      * <p>Targeting rules still read the attribute bag, so an anonymous context
      * segments normally. It cannot be bucketed, so a percentage rollout keyed on the
-     * identity serves the control variation deterministically, exactly as a keyless
-     * context does (#1457).
+     * identity is skipped and evaluation continues with the next rule or the
+     * fallthrough, exactly as for a keyless context (#4236).
      *
      * <p>Analytics events built from such a context <strong>omit</strong>
      * {@code userId} rather than sending an empty string, which is the shape every

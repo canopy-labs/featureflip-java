@@ -76,11 +76,11 @@ public final class FlagEvaluator {
                                     Map<String, FlagConfiguration> allFlags,
                                     int depth, Map<String, Result> memo) {
         if (depth > MAX_PREREQUISITE_DEPTH) {
-            return new Result(flag.getOffVariation(), EvaluationReason.ERROR, null);
+            return offResult(flag, EvaluationReason.ERROR, null);
         }
 
         if (!flag.isEnabled()) {
-            return new Result(flag.getOffVariation(), EvaluationReason.FLAG_DISABLED, null);
+            return offResult(flag, EvaluationReason.FLAG_DISABLED, null);
         }
 
         // Resolve prerequisites in order. A failing prerequisite short-circuits to the
@@ -94,9 +94,8 @@ public final class FlagEvaluator {
                     : null;
 
                 if (prereqFlag == null) {
-                    Result miss = new Result(flag.getOffVariation(),
-                        EvaluationReason.PREREQUISITE_FAILED, null,
-                        prereq.getPrerequisiteFlagKey());
+                    Result miss = offResult(flag,
+                        EvaluationReason.PREREQUISITE_FAILED, prereq.getPrerequisiteFlagKey());
                     memo.put(flag.getKey(), miss);
                     return miss;
                 }
@@ -106,15 +105,14 @@ public final class FlagEvaluator {
             }
 
             if (prereqResult.getReason() == EvaluationReason.ERROR) {
-                Result err = new Result(flag.getOffVariation(), EvaluationReason.ERROR, null);
+                Result err = offResult(flag, EvaluationReason.ERROR, null);
                 memo.put(flag.getKey(), err);
                 return err;
             }
 
             if (!prereq.getExpectedVariationKey().equals(prereqResult.getVariationKey())) {
-                Result failed = new Result(flag.getOffVariation(),
-                    EvaluationReason.PREREQUISITE_FAILED, null,
-                    prereq.getPrerequisiteFlagKey());
+                Result failed = offResult(flag,
+                    EvaluationReason.PREREQUISITE_FAILED, prereq.getPrerequisiteFlagKey());
                 memo.put(flag.getKey(), failed);
                 return failed;
             }
@@ -127,6 +125,18 @@ public final class FlagEvaluator {
         for (TargetingRule rule : orderedRules) {
             if (evaluateRule(rule, context)) {
                 String variationKey = resolveServeConfig(rule.getServe(), context);
+                if (variationKey == null) {
+                    // The rollout can't bucket this context: the rule doesn't match (#4236).
+                    UnbucketableWarnings.warn(flag.getKey(), rule.getId(), bucketByOf(rule.getServe()));
+                    continue;
+                }
+                if (!hasVariation(flag, variationKey)) {
+                    // The served key names no variation: malformed config. Report ERROR (no
+                    // rule id) with the served key, like the engine's ServeVariation (#4236).
+                    Result missing = new Result(variationKey, EvaluationReason.ERROR, null);
+                    memo.put(flag.getKey(), missing);
+                    return missing;
+                }
                 Result ruleResult = new Result(variationKey, EvaluationReason.RULE_MATCH, rule.getId());
                 memo.put(flag.getKey(), ruleResult);
                 return ruleResult;
@@ -135,6 +145,17 @@ public final class FlagEvaluator {
 
         if (flag.getFallthrough() != null) {
             String variationKey = resolveServeConfig(flag.getFallthrough(), context);
+            if (variationKey == null) {
+                // Can't bucket: serve the fallthrough's own variation, as the no-variations degrade does.
+                UnbucketableWarnings.warn(flag.getKey(), null, bucketByOf(flag.getFallthrough()));
+                String degraded = flag.getFallthrough().getVariation();
+                variationKey = degraded != null ? degraded : "";
+            }
+            if (!hasVariation(flag, variationKey)) {
+                Result missing = new Result(variationKey, EvaluationReason.ERROR, null);
+                memo.put(flag.getKey(), missing);
+                return missing;
+            }
             Result fallResult = new Result(variationKey, EvaluationReason.FALLTHROUGH, null);
             memo.put(flag.getKey(), fallResult);
             return fallResult;
@@ -143,6 +164,17 @@ public final class FlagEvaluator {
         Result offResult = new Result(flag.getOffVariation(), EvaluationReason.FALLTHROUGH, null);
         memo.put(flag.getKey(), offResult);
         return offResult;
+    }
+
+    /**
+     * Serves the flag's off variation with the given reason. An off variation the flag doesn't
+     * define is malformed config: ERROR with the key, like the engine's ServeVariation (#4236).
+     */
+    private static Result offResult(FlagConfiguration flag, EvaluationReason reason, String prerequisiteKey) {
+        if (!hasVariation(flag, flag.getOffVariation())) {
+            return new Result(flag.getOffVariation(), EvaluationReason.ERROR, null);
+        }
+        return new Result(flag.getOffVariation(), reason, null, prerequisiteKey);
     }
 
     boolean evaluateRule(TargetingRule rule, EvaluationContext context) {
@@ -584,32 +616,39 @@ public final class FlagEvaluator {
         }
     }
 
+    private static String bucketByOf(ServeConfig serve) {
+        return serve.getBucketBy() != null ? serve.getBucketBy() : "userId";
+    }
+
+    /**
+     * Resolves a serve to a variation key.
+     *
+     * @return the variation key, or {@code null} when a percentage rollout can't bucket the
+     *     context (the bucket-by value is missing, null or exactly {@code ""}). Callers skip the
+     *     rule, or serve the fallthrough's own variation. Never null for a fixed serve or for a
+     *     rollout without variations (the #1469 degrade).
+     */
     String resolveServeConfig(ServeConfig serve, EvaluationContext context) {
         if (serve.getType() == ServeType.FIXED) {
             return serve.getVariation() != null ? serve.getVariation() : "";
         }
 
         // Rollout
-        String bucketBy = serve.getBucketBy() != null ? serve.getBucketBy() : "userId";
-        Object bucketAttr = context.getAttribute(bucketBy);
-        String bucketValue = bucketAttr != null ? bucketAttr.toString() : "";
-        String salt = serve.getSalt() != null ? serve.getSalt() : "";
-
         List<WeightedVariation> variations = serve.getVariations();
 
-        // Keyless user contexts can't be bucketed. Rather than hashing the empty value
-        // into an arbitrary salt-dependent bucket, serve the control (first) variation
-        // deterministically. The engine assigns a random GUID per eval (spreading
-        // anonymous users over HTTP); local SDK eval is deterministic, so parity is
-        // guaranteed only for keyed contexts (#1457).
-        if (bucketValue.isEmpty() && (bucketBy.equals("userId") || bucketBy.equals("user_id")) && variations != null && !variations.isEmpty())
-            return variations.get(0).getKey();
-
-        int bucket = calculateBucket(salt, bucketValue);
-
+        // A rollout with no variations degrades to its plain variation (#1469). This runs
+        // before the can't-bucket check: with nothing to roll out there is nothing to skip.
         if (variations == null || variations.isEmpty()) {
             return serve.getVariation() != null ? serve.getVariation() : "";
         }
+
+        Object bucketAttr = context.getBucketAttribute(bucketByOf(serve));
+        String bucketValue = bucketValueOf(bucketAttr);
+        if (bucketValue.isEmpty()) {
+            return null;
+        }
+        String salt = serve.getSalt() != null ? serve.getSalt() : "";
+        int bucket = calculateBucket(salt, bucketValue);
 
         int cumulative = 0;
         for (WeightedVariation wv : variations) {
@@ -620,6 +659,32 @@ public final class FlagEvaluator {
         }
 
         return variations.get(variations.size() - 1).getKey();
+    }
+
+    /**
+     * The text a bucket-by value hashes as, shared with the Evaluation API (#4236): a Boolean
+     * is "true"/"false" (JSON spelling), a floating type uses the canonical number spelling, integers and
+     * strings are unchanged. Bucket path only; conditions stringify separately.
+     */
+    static String bucketValueOf(Object value) {
+        if (value == null) return "";
+        if (value instanceof Boolean) return (Boolean) value ? "true" : "false";
+        if (value instanceof Double) return CanonicalNumber.format((double) (Double) value);
+        if (value instanceof Float) return CanonicalNumber.format((float) (Float) value);
+        if (value instanceof java.math.BigDecimal) {
+            // A BigDecimal with no fractional part keeps its exact integer digits (like the
+            // engine's raw integer text); anything else goes through double.
+            java.math.BigDecimal d = (java.math.BigDecimal) value;
+            if (d.signum() == 0) return "0";
+            java.math.BigDecimal stripped = d.stripTrailingZeros();
+            if (stripped.scale() <= 0) return stripped.toBigIntegerExact().toString();
+            return CanonicalNumber.format(d.doubleValue());
+        }
+        return value.toString();
+    }
+
+    private static boolean hasVariation(FlagConfiguration flag, String key) {
+        return flag.getVariationByKey(key) != null;
     }
 
     int calculateBucket(String salt, String value) {

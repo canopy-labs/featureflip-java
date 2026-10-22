@@ -197,6 +197,42 @@ class FlagEvaluatorPrerequisiteTest {
         return map;
     }
 
+    @Test
+    void evaluate_DisabledFlagWithUnknownOffVariation_IsError() {
+        FlagConfiguration flag = boolFlag("f", false, null);
+        flag.setOffVariation("zzz");
+
+        FlagEvaluator.Result result = evaluator.evaluate(flag, ctx("u1"), toMap(flag));
+
+        assertThat(result.getReason()).isEqualTo(EvaluationReason.ERROR);
+        assertThat(result.getVariationKey()).isEqualTo("zzz");
+    }
+
+    @Test
+    void evaluate_FailedPrerequisiteWithUnknownOffVariation_IsErrorNotPrerequisiteFailed() {
+        FlagConfiguration parent = boolFlag("parent", false, null);
+        FlagConfiguration child = boolFlag("child", true, List.of(prereq("parent", "on")));
+        child.setOffVariation("zzz");
+
+        FlagEvaluator.Result result = evaluator.evaluate(child, ctx("u1"), toMap(parent, child));
+
+        assertThat(result.getReason()).isEqualTo(EvaluationReason.ERROR);
+        assertThat(result.getVariationKey()).isEqualTo("zzz");
+        assertThat(result.getPrerequisiteKey()).isNull();
+    }
+
+    @Test
+    void evaluate_DependentOfUnknownOffPrerequisite_IsErrorServingItsOwnOff() {
+        FlagConfiguration parent = boolFlag("parent", false, null);
+        parent.setOffVariation("zzz");
+        FlagConfiguration child = boolFlag("child", true, List.of(prereq("parent", "on")));
+
+        FlagEvaluator.Result result = evaluator.evaluate(child, ctx("u1"), toMap(parent, child));
+
+        assertThat(result.getReason()).isEqualTo(EvaluationReason.ERROR);
+        assertThat(result.getVariationKey()).isEqualTo("off");
+    }
+
     private FlagConfiguration boolFlag(String key, boolean enabled, List<Prerequisite> prerequisites) {
         FlagConfiguration f = new FlagConfiguration();
         f.setKey(key);

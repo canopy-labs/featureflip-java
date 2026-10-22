@@ -318,8 +318,10 @@ class GoldenVectorTest {
                 FlagEvaluator evaluator = new FlagEvaluator(store);
 
                 // Build EvaluationContext from the vector's context node
-                String userId = contextNode.has("userId") ? contextNode.get("userId").asText() : "anonymous";
-                EvaluationContext.Builder ctxBuilder = EvaluationContext.builder(userId);
+                // No userId in the vector means an anonymous context, not an empty identity (#4236).
+                EvaluationContext.Builder ctxBuilder = contextNode.has("userId")
+                    ? EvaluationContext.builder(contextNode.get("userId").asText())
+                    : EvaluationContext.builder();
                 JsonNode attrsNode = contextNode.get("attributes");
                 if (attrsNode != null) {
                     for (Map.Entry<String, JsonNode> entry : attrsNode.properties()) {
@@ -340,11 +342,9 @@ class GoldenVectorTest {
                     .isEqualTo(expectedVariation);
 
                 // Assert value: find variation by key, compare JSON serialization
+                // A served key the flag doesn't define (reason Error, #4236) has no value: null.
                 Variation variation = targetFlag.getVariationByKey(result.getVariationKey());
-                assertThat(variation)
-                    .as("[%s] variation '%s' not found in flag", id, result.getVariationKey())
-                    .isNotNull();
-                String gotValueJson = mapper.writeValueAsString(variation.getValue());
+                String gotValueJson = mapper.writeValueAsString(variation == null ? null : variation.getValue());
                 String expectedValueJson = mapper.writeValueAsString(expectedNode.get("value"));
                 assertThat(gotValueJson)
                     .as("[%s] value JSON", id)
@@ -407,11 +407,15 @@ class GoldenVectorTest {
 
     /**
      * Converts a {@link JsonNode} from the context attributes map to a plain Java
-     * object. Booleans → {@link Boolean}, numbers → {@link Double},
+     * object. JSON null → null, booleans → {@link Boolean}, integral numbers → {@link Long}, other numbers → {@link Double},
      * everything else → {@link String}.
      */
     private Object jsonNodeToObject(JsonNode node) {
+        if (node.isNull()) return null;
         if (node.isBoolean()) return node.asBoolean();
+        // Integral JSON numbers keep their integral spelling ("0", not "0.0"), as the engine
+        // stringifies them for bucketing.
+        if (node.isIntegralNumber() && node.canConvertToLong()) return node.asLong();
         if (node.isNumber()) return node.asDouble();
         return node.asText();
     }

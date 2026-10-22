@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "io.featureflip"
-version = "2.11.0"
+version = "2.12.0"
 
 java {
     toolchain {
@@ -25,8 +25,8 @@ dependencies {
 
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
     implementation("com.squareup.okhttp3:okhttp-sse:5.5.0")
-    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.3")
-    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.3")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.22.4")
+    implementation("com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.22.4")
 
     testImplementation("org.junit.jupiter:junit-jupiter:5.14.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")

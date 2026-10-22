@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.12.0 — 2026-10-22
+
+### Changed
+
+- A percentage rollout that can't bucket the context (no `user_id`, or no value for its bucket-by attribute) now skips the rule and evaluation continues with the next rule or the fallthrough. Previously the SDK served the rollout's first variation, which is the variation being rolled out. A warning is logged once per flag and rule. (#4236)
+- Decimal numbers used as a rollout bucket value now hash in one canonical spelling shared with the Evaluation API (for example `1.0` hashes as `1`), so the same context gets the same variant in every SDK. Integer values are unchanged. A context whose user id is a non-integer number may get a different variant. A `BigDecimal` with no fractional part hashes as its exact integer digits; any other `BigDecimal` is converted to a double first. (#4236)
+- Malformed variation references now evaluate to reason `ERROR` the way the Evaluation API does. A rule or fallthrough that serves a key the flag doesn't define (the detail already reported `ERROR` and the default) no longer reports the rule id, and a served empty-string key with no empty-string variation is now an `ERROR` too. A flag whose prerequisite serves an undefined variation, or whose own off variation is undefined, now reports `ERROR` (still serving its off variation) instead of `PREREQUISITE_FAILED` or `FLAG_DISABLED`. (#4236)
+- A context with no `userId` whose `user_id` attribute is set (for example `0` or `false`) now buckets on that attribute when the rollout buckets by `user_id`/`userId`, matching the Evaluation API; conditions are unchanged. `EvaluationContext.getBucketAttribute` is public only so the evaluator can reach it; it is internal, not supported API. (#4236)
+
 ## 2.11.0 — 2026-10-20
 
 ### Added

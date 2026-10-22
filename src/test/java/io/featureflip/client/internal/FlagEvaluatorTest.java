@@ -834,62 +834,233 @@ class FlagEvaluatorTest {
         assertThat(resultDefault).isEqualTo(resultExplicit);
     }
 
-    @Test
-    void keylessContextServesControlVariationDeterministically() {
-        // #1457: a keyless/anonymous context (no userId/user_id) can't be bucketed.
-        // Rather than hashing the empty value into an arbitrary salt-dependent bucket,
-        // the rollout serves the control (first) variation deterministically. The thin
-        // control weight (1) means the old empty-hash collapse would NOT land on "on".
+    private static ServeConfig thinControlRollout(String bucketBy) {
         WeightedVariation control = new WeightedVariation();
         control.setKey("on");
         control.setWeight(1);
         WeightedVariation rest = new WeightedVariation();
         rest.setKey("off");
         rest.setWeight(99);
-
         ServeConfig rollout = new ServeConfig();
         rollout.setType(ServeType.ROLLOUT);
-        rollout.setBucketBy("userId");
+        rollout.setBucketBy(bucketBy);
         rollout.setSalt("test-salt");
         rollout.setVariations(List.of(control, rest));
+        return rollout;
+    }
 
-        // Keyless/anonymous context: empty user key, no user_id attribute.
+    // #4236: a rollout that can't bucket the context is skipped (null), not served
+    // its first variation. This replaces the #1457 "serve control" behaviour.
+    @Test
+    void keylessContextCannotBucketRollout() {
+        ServeConfig rollout = thinControlRollout("userId");
         EvaluationContext ctx = EvaluationContext.builder("").build();
 
         for (int i = 0; i < 20; i++) {
-            String result = evaluator.resolveServeConfig(rollout, ctx);
-            assertThat(result).as("eval #%d", i).isEqualTo("on");
+            assertThat(evaluator.resolveServeConfig(rollout, ctx)).as("eval #%d", i).isNull();
         }
     }
 
-    // #2665: the anonymous context reaches the SAME keyless guard as builder("").
-    // The guard keys off an empty bucket VALUE, and getAttribute returns the null
-    // identity for an anonymous context, which resolveServeConfig coerces to "" —
-    // so evaluation must be indistinguishable between the two spellings, and must
-    // not NPE on the null. Evaluation was never the broken half of #2665; this
-    // pins that the new constructor did not make it the broken half.
+    // #2665: the anonymous context reaches the SAME guard as builder("") and must not
+    // NPE on the null identity; both spellings skip.
     @Test
-    void anonymousContextServesControlVariationLikeAnEmptyUserId() {
-        WeightedVariation control = new WeightedVariation();
-        control.setKey("on");
-        control.setWeight(1);
-        WeightedVariation rest = new WeightedVariation();
-        rest.setKey("off");
-        rest.setWeight(99);
-
-        ServeConfig rollout = new ServeConfig();
-        rollout.setType(ServeType.ROLLOUT);
-        rollout.setBucketBy("userId");
-        rollout.setSalt("test-salt");
-        rollout.setVariations(List.of(control, rest));
-
+    void anonymousContextCannotBucketLikeAnEmptyUserId() {
+        ServeConfig rollout = thinControlRollout("userId");
         EvaluationContext anonymous = EvaluationContext.builder().set("plan", "pro").build();
 
         for (int i = 0; i < 20; i++) {
-            assertThat(evaluator.resolveServeConfig(rollout, anonymous))
-                .as("eval #%d", i)
-                .isEqualTo("on");
+            assertThat(evaluator.resolveServeConfig(rollout, anonymous)).as("eval #%d", i).isNull();
         }
+    }
+
+    @Test
+    void whitespaceAndZeroLikeValuesStillBucket() {
+        ServeConfig rollout = thinControlRollout("tenant");
+        for (Object v : new Object[] {" ", "0", 0, false}) {
+            EvaluationContext ctx = EvaluationContext.builder("u").set("tenant", v).build();
+            assertThat(evaluator.resolveServeConfig(rollout, ctx)).as("value %s", v).isNotNull();
+        }
+    }
+
+    @Test
+    void customBucketByMissingEmptyOrNullCannotBucket() {
+        ServeConfig rollout = thinControlRollout("anonymous_id");
+        assertThat(evaluator.resolveServeConfig(rollout, EvaluationContext.builder("u").build())).isNull();
+        assertThat(evaluator.resolveServeConfig(rollout,
+            EvaluationContext.builder("u").set("anonymous_id", "").build())).isNull();
+        assertThat(evaluator.resolveServeConfig(rollout,
+            EvaluationContext.builder("u").set("anonymous_id", null).build())).isNull();
+        assertThat(evaluator.resolveServeConfig(rollout,
+            EvaluationContext.builder("u").set("anonymous_id", "abc").build())).isNotNull();
+    }
+
+    @Test
+    void rolloutWithoutVariationsKeylessDegradesNotSkips() {
+        // The #1469 degrade (no variations -> serve.Variation) runs before the
+        // can't-bucket check, so a keyless context still gets the degrade value.
+        ServeConfig rollout = new ServeConfig();
+        rollout.setType(ServeType.ROLLOUT);
+        rollout.setBucketBy("userId");
+        rollout.setVariation("on");
+        EvaluationContext ctx = EvaluationContext.builder("").build();
+
+        assertThat(evaluator.resolveServeConfig(rollout, ctx)).isEqualTo("on");
+
+        rollout.setVariations(Collections.emptyList());
+        assertThat(evaluator.resolveServeConfig(rollout, ctx)).isEqualTo("on");
+    }
+
+    private FlagConfiguration keylessFlag(String key, boolean enabled, TargetingRule... rules) {
+        FlagConfiguration flag = new FlagConfiguration();
+        flag.setKey(key);
+        flag.setEnabled(enabled);
+        flag.setOffVariation("off");
+        flag.setRules(List.of(rules));
+        flag.setFallthrough(fixedServe("fall"));
+        flag.setVariations(List.of(boolVariation("on", true), boolVariation("off", false),
+            boolVariation("fall", false), boolVariation("r2", true)));
+        return flag;
+    }
+
+    private static TargetingRule rule(String id, int priority, ServeConfig serve) {
+        TargetingRule r = new TargetingRule();
+        r.setId(id);
+        r.setPriority(priority);
+        r.setServe(serve);
+        return r;
+    }
+
+    @Test
+    void keylessRolloutRuleFallsThrough() {
+        FlagConfiguration flag = keylessFlag("eval-fallthrough", true,
+            rule("r1", 0, thinControlRollout("userId")));
+        FlagEvaluator.Result result = evaluator.evaluate(flag, EvaluationContext.builder("").build());
+        assertThat(result.getVariationKey()).isEqualTo("fall");
+        assertThat(result.getReason()).isEqualTo(EvaluationReason.FALLTHROUGH);
+    }
+
+    @Test
+    void customBucketByMissingWithUserIdPresentFallsThrough() {
+        FlagConfiguration flag = keylessFlag("eval-custom-missing", true,
+            rule("r1", 0, thinControlRollout("anonymous_id")));
+        FlagEvaluator.Result result = evaluator.evaluate(flag, EvaluationContext.builder("user-1").build());
+        assertThat(result.getVariationKey()).isEqualTo("fall");
+        assertThat(result.getReason()).isEqualTo(EvaluationReason.FALLTHROUGH);
+    }
+
+    @Test
+    void keylessRolloutRuleFollowedByFixedRuleServesNextRule() {
+        FlagConfiguration flag = keylessFlag("eval-next-rule", true,
+            rule("r1", 0, thinControlRollout("userId")),
+            rule("r2", 1, fixedServe("r2")));
+        FlagEvaluator.Result result = evaluator.evaluate(flag, EvaluationContext.builder("").build());
+        assertThat(result.getVariationKey()).isEqualTo("r2");
+        assertThat(result.getReason()).isEqualTo(EvaluationReason.RULE_MATCH);
+        assertThat(result.getRuleId()).isEqualTo("r2");
+    }
+
+    @Test
+    void keylessRolloutFallthroughServesFallthroughVariation() {
+        FlagConfiguration flag = keylessFlag("eval-fallthrough-rollout", true);
+        ServeConfig ft = thinControlRollout("userId");
+        ft.setVariation("fall");
+        flag.setFallthrough(ft);
+        FlagEvaluator.Result result = evaluator.evaluate(flag, EvaluationContext.builder("").build());
+        assertThat(result.getVariationKey()).isEqualTo("fall");
+        assertThat(result.getReason()).isEqualTo(EvaluationReason.FALLTHROUGH);
+    }
+
+    // Warning behaviour. Dedup is process-wide, so each test uses its own flag key.
+    private List<String> captureWarnings(Runnable body) {
+        List<String> lines = new java.util.concurrent.CopyOnWriteArrayList<>();
+        java.util.function.Consumer<String> prev = UnbucketableWarnings.shared().setSink(lines::add);
+        try {
+            body.run();
+        } finally {
+            UnbucketableWarnings.shared().setSink(prev);
+        }
+        return lines;
+    }
+
+    @Test
+    void keylessEvaluationWarnsOncePerFlagAndRuleWithoutLeakingValues() {
+        FlagConfiguration flag = keylessFlag("warn-once-flag", true,
+            rule("r1", 0, thinControlRollout("userId")));
+        EvaluationContext ctx = EvaluationContext.builder("").set("email", "secret@example.com").build();
+
+        List<String> lines = captureWarnings(() -> {
+            evaluator.evaluate(flag, ctx);
+            evaluator.evaluate(flag, ctx);
+        });
+
+        assertThat(lines).hasSize(1);
+        assertThat(lines.get(0))
+            .contains("warn-once-flag").contains("rule r1").contains("userId")
+            .doesNotContain("secret@example.com");
+    }
+
+    @Test
+    void disabledFlagKeylessWarnsNothing() {
+        FlagConfiguration flag = keylessFlag("warn-disabled-flag", false,
+            rule("r1", 0, thinControlRollout("userId")));
+        List<String> lines = captureWarnings(() ->
+            evaluator.evaluate(flag, EvaluationContext.builder("").build()));
+        assertThat(lines).isEmpty();
+    }
+
+    @Test
+    void rolloutWithoutVariationsDoesNotWarn() {
+        ServeConfig rollout = new ServeConfig();
+        rollout.setType(ServeType.ROLLOUT);
+        rollout.setBucketBy("userId");
+        rollout.setVariation("on");
+        FlagConfiguration flag = keylessFlag("warn-degrade-flag", true, rule("r1", 0, rollout));
+        List<String> lines = captureWarnings(() -> {
+            FlagEvaluator.Result r = evaluator.evaluate(flag, EvaluationContext.builder("").build());
+            assertThat(r.getVariationKey()).isEqualTo("on");
+        });
+        assertThat(lines).isEmpty();
+    }
+
+    @Test
+    void fallthroughWarningNamesFallthrough() {
+        FlagConfiguration flag = keylessFlag("warn-fallthrough-flag", true);
+        flag.setFallthrough(thinControlRollout("userId"));
+        List<String> lines = captureWarnings(() ->
+            evaluator.evaluate(flag, EvaluationContext.builder("").build()));
+        assertThat(lines).hasSize(1);
+        assertThat(lines.get(0)).contains("warn-fallthrough-flag").contains("(fallthrough)");
+    }
+
+    @Test
+    void concurrentKeylessEvaluationsWarnExactlyOnce() throws Exception {
+        FlagConfiguration flag = keylessFlag("warn-concurrent-flag", true,
+            rule("r1", 0, thinControlRollout("userId")));
+        EvaluationContext ctx = EvaluationContext.builder("").build();
+        int threads = 32;
+        java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(threads);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        List<java.util.concurrent.Future<?>> futures = new java.util.ArrayList<>();
+
+        List<String> lines = captureWarnings(() -> {
+            try {
+                for (int i = 0; i < threads; i++) {
+                    futures.add(pool.submit(() -> {
+                        start.await();
+                        evaluator.evaluate(flag, ctx);
+                        return null;
+                    }));
+                }
+                start.countDown();
+                for (java.util.concurrent.Future<?> f : futures) f.get();
+            } catch (Exception e) {
+                throw new AssertionError(e);
+            } finally {
+                pool.shutdownNow();
+            }
+        });
+
+        assertThat(lines).hasSize(1);
     }
 
     private static ServeConfig rolloutServe(String salt) {
