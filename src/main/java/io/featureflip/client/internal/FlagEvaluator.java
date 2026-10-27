@@ -672,12 +672,17 @@ public final class FlagEvaluator {
         if (value instanceof Double) return CanonicalNumber.format((double) (Double) value);
         if (value instanceof Float) return CanonicalNumber.format((float) (Float) value);
         if (value instanceof java.math.BigDecimal) {
-            // A BigDecimal with no fractional part keeps its exact integer digits (like the
-            // engine's raw integer text); anything else goes through double.
+            // A BigDecimal below 1e21 with no fractional part keeps its exact integer digits
+            // (like the engine's raw integer text); anything else goes through double. The 1e21
+            // cap is where ECMAScript spelling turns exponential, and stops new BigDecimal("1E+999999999")
+            // expanding to a billion digits per evaluation (#4246). precision - scale is the
+            // integer digit count, so |d| < 1e21 is at most 21 of them.
             java.math.BigDecimal d = (java.math.BigDecimal) value;
             if (d.signum() == 0) return "0";
             java.math.BigDecimal stripped = d.stripTrailingZeros();
-            if (stripped.scale() <= 0) return stripped.toBigIntegerExact().toString();
+            if (stripped.scale() <= 0 && (long) stripped.precision() - stripped.scale() <= 21) {
+                return stripped.toBigIntegerExact().toString();
+            }
             return CanonicalNumber.format(d.doubleValue());
         }
         return value.toString();

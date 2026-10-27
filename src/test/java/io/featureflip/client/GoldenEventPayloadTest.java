@@ -104,7 +104,7 @@ class GoldenEventPayloadTest {
         tests.add(dynamicTest("executed the expected number of vectors", () ->
             assertThat(ran)
                 .as("event payload vectors executed — did a skip rule widen?")
-                .isGreaterThanOrEqualTo(10)));
+                .isGreaterThanOrEqualTo(16)));
 
         return tests;
     }
@@ -123,9 +123,10 @@ class GoldenEventPayloadTest {
     }
 
     private void runVector(JsonNode v) throws Exception {
+        boolean evaluation = "evaluation".equals(v.get("kind").asText());
         try (MockWebServer server = new MockWebServer()) {
             server.enqueue(new MockResponse.Builder()
-                .body(FLAGS_JSON)
+                .body(evaluation ? flagsJsonFor(v) : FLAGS_JSON)
                 .addHeader("Content-Type", "application/json")
                 .build());
             server.enqueue(new MockResponse.Builder().code(202).build());
@@ -141,7 +142,9 @@ class GoldenEventPayloadTest {
                 client.waitForInitialization();
 
                 EvaluationContext context = contextFrom(v.get("context"));
-                if ("identify".equals(v.get("kind").asText())) {
+                if (evaluation) {
+                    client.boolVariation(v.get("flagKey").asText(), context, false);
+                } else if ("identify".equals(v.get("kind").asText())) {
                     client.identify(context);
                 } else {
                     // A vector with no `metadata` key omits the argument entirely,
@@ -185,6 +188,16 @@ class GoldenEventPayloadTest {
 
             assertThat(event.get("timestamp").asText()).matches(UTC_INSTANT);
         }
+    }
+
+    /** The flag payload an evaluation vector is read against (#4268). */
+    private String flagsJsonFor(JsonNode v) throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        body.put("environment", "test");
+        body.put("version", 1);
+        body.put("flags", v.get("flags"));
+        body.put("segments", v.has("segments") ? v.get("segments") : mapper.createArrayNode());
+        return mapper.writeValueAsString(body);
     }
 
     /**

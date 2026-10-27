@@ -14,6 +14,14 @@ public final class SdkEvent {
     private String userId;
     private String variation;
     private Instant timestamp;
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String prerequisiteKey;
+    /** Kebab-case reason category on Evaluation events; never carries a rule id. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String reason;
+    /** The matched rule's id; set only when the reason is {@code rule-match}. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private String ruleId;
     private Map<String, JsonNode> metadata;
 
     public SdkEventType getType() { return type; }
@@ -26,6 +34,12 @@ public final class SdkEvent {
     public void setVariation(String variation) { this.variation = variation; }
     public Instant getTimestamp() { return timestamp; }
     public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
+    public String getPrerequisiteKey() { return prerequisiteKey; }
+    public void setPrerequisiteKey(String prerequisiteKey) { this.prerequisiteKey = prerequisiteKey; }
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
+    public String getRuleId() { return ruleId; }
+    public void setRuleId(String ruleId) { this.ruleId = ruleId; }
     public Map<String, JsonNode> getMetadata() { return metadata; }
     public void setMetadata(Map<String, JsonNode> metadata) { this.metadata = metadata; }
 }

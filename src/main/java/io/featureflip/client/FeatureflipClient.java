@@ -386,9 +386,7 @@ public final class FeatureflipClient implements AutoCloseable {
             return new EvaluationDetail<>(defaultValue, EvaluationReason.ERROR, null, "Client is closed");
         }
         EvaluationDetail<T> detail = core.evaluate(key, context, defaultValue, type);
-        if (detail.getVariationKey() != null) {
-            core.trackEvaluation(key, context, detail.getVariationKey());
-        }
+        core.trackEvaluation(key, context, detail);
         return detail;
     }
 

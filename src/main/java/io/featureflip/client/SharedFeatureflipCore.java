@@ -541,6 +541,19 @@ final class SharedFeatureflipCore {
         }
     }
 
+    /** Kebab-case wire category for an evaluation reason (#4268); same names as the Evaluation API. */
+    private static String wireReason(EvaluationReason reason) {
+        switch (reason) {
+            case RULE_MATCH: return "rule-match";
+            case FALLTHROUGH: return "fallthrough";
+            case FLAG_DISABLED: return "flag-disabled";
+            case PREREQUISITE_FAILED: return "prerequisite-failed";
+            case FLAG_NOT_FOUND: return "flag-not-found";
+            case ERROR:
+            default: return "error";
+        }
+    }
+
     /**
      * Tracks an evaluation event into the event processor queue.
      *
@@ -555,15 +568,23 @@ final class SharedFeatureflipCore {
      * {@code SdkEventDto.UserId} is nullable. That matches the Go SDK, whose
      * value-typed context yields an empty user id for the same case.
      */
-    void trackEvaluation(String key, EvaluationContext context, String variationKey) {
+    void trackEvaluation(String key, EvaluationContext context, EvaluationDetail<?> detail) {
         if (isShutDown() || eventProcessor == null) return;
 
         SdkEvent event = new SdkEvent();
         event.setType(SdkEventType.EVALUATION);
         event.setFlagKey(key);
         event.setUserId(context != null ? context.getUserId() : null);
-        event.setVariation(variationKey);
+        event.setVariation(detail.getVariationKey());
         event.setTimestamp(Instant.now());
+        event.setPrerequisiteKey(detail.getPrerequisiteKey());
+        event.setReason(wireReason(detail.getReason()));
+        // ruleId rides only on a rule match: an ERROR read (type mismatch, malformed
+        // variation) still carries the rule that selected the variation, but that
+        // rule did not serve the traffic.
+        if (detail.getReason() == EvaluationReason.RULE_MATCH) {
+            event.setRuleId(detail.getRuleId());
+        }
         eventProcessor.enqueue(event);
         maybeAutoFlush();
     }

@@ -7892,6 +7892,388 @@
           "amount": 10
         }
       }
+    },
+    {
+      "id": "ep-eval-rule-match",
+      "description": "A targeting rule served the read: reason is the kebab-case category and the rule id rides in its own field, never embedded in the reason (#4268)",
+      "kind": "evaluation",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [
+            {
+              "id": "7f3c2b1a-0d4e-4c5b-9a8f-1e2d3c4b5a69",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "plan",
+                      "operator": "Equals",
+                      "values": [
+                        "pro"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "flagKey": "main",
+      "context": {
+        "user_id": "user-1",
+        "plan": "pro"
+      },
+      "expect": {
+        "type": "Evaluation",
+        "flagKey": "main",
+        "userId": "user-1",
+        "variation": "on",
+        "reason": "rule-match",
+        "ruleId": "7f3c2b1a-0d4e-4c5b-9a8f-1e2d3c4b5a69"
+      }
+    },
+    {
+      "id": "ep-eval-rollout-rule-match",
+      "description": "A percentage-rollout rule is still a rule match, carrying its rule id, so the Analytics tab can set its actual split against its configured weights",
+      "kind": "evaluation",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [
+            {
+              "id": "2b9e6d40-5c1f-4a8e-b7d3-9f0a1c2e3d4b",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "on",
+                    "weight": 100
+                  },
+                  {
+                    "key": "off",
+                    "weight": 0
+                  }
+                ],
+                "bucketBy": "userId"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "flagKey": "main",
+      "context": {
+        "user_id": "user-1"
+      },
+      "expect": {
+        "type": "Evaluation",
+        "flagKey": "main",
+        "userId": "user-1",
+        "variation": "on",
+        "reason": "rule-match",
+        "ruleId": "2b9e6d40-5c1f-4a8e-b7d3-9f0a1c2e3d4b"
+      }
+    },
+    {
+      "id": "ep-eval-fallthrough",
+      "description": "No rule matched: fallthrough, and no ruleId even though the flag has rules",
+      "kind": "evaluation",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [
+            {
+              "id": "7f3c2b1a-0d4e-4c5b-9a8f-1e2d3c4b5a69",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "plan",
+                      "operator": "Equals",
+                      "values": [
+                        "pro"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "flagKey": "main",
+      "context": {
+        "user_id": "user-1",
+        "plan": "free"
+      },
+      "expect": {
+        "type": "Evaluation",
+        "flagKey": "main",
+        "userId": "user-1",
+        "variation": "off",
+        "reason": "fallthrough"
+      }
+    },
+    {
+      "id": "ep-eval-flag-disabled",
+      "description": "A disabled flag serves its off variation with reason flag-disabled, even when a rule would have matched",
+      "kind": "evaluation",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": false,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [
+            {
+              "id": "7f3c2b1a-0d4e-4c5b-9a8f-1e2d3c4b5a69",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "plan",
+                      "operator": "Equals",
+                      "values": [
+                        "pro"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "on"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "flagKey": "main",
+      "context": {
+        "user_id": "user-1",
+        "plan": "pro"
+      },
+      "expect": {
+        "type": "Evaluation",
+        "flagKey": "main",
+        "userId": "user-1",
+        "variation": "off",
+        "reason": "flag-disabled"
+      }
+    },
+    {
+      "id": "ep-eval-prerequisite-failed",
+      "description": "An unmet prerequisite serves the off variation with reason prerequisite-failed and names the gating flag; the prerequisite\u0027s own evaluation emits no event",
+      "kind": "evaluation",
+      "flags": [
+        {
+          "key": "parent",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        },
+        {
+          "key": "child",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "on"
+          },
+          "offVariation": "off",
+          "prerequisites": [
+            {
+              "prerequisiteFlagKey": "parent",
+              "expectedVariationKey": "on"
+            }
+          ]
+        }
+      ],
+      "segments": [],
+      "flagKey": "child",
+      "context": {
+        "user_id": "user-1"
+      },
+      "expect": {
+        "type": "Evaluation",
+        "flagKey": "child",
+        "userId": "user-1",
+        "variation": "off",
+        "reason": "prerequisite-failed",
+        "prerequisiteKey": "parent"
+      }
+    },
+    {
+      "id": "ep-eval-flag-not-found",
+      "description": "A read of a flag the SDK does not hold: reason flag-not-found and no variation",
+      "kind": "evaluation",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "Boolean",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "on",
+              "value": true
+            },
+            {
+              "key": "off",
+              "value": false
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "off"
+          },
+          "offVariation": "off",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "flagKey": "missing",
+      "context": {
+        "user_id": "user-1"
+      },
+      "expect": {
+        "type": "Evaluation",
+        "flagKey": "missing",
+        "userId": "user-1",
+        "reason": "flag-not-found"
+      }
     }
   ]
 }

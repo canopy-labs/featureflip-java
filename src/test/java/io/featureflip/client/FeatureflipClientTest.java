@@ -473,4 +473,68 @@ class FeatureflipClientTest {
 
         assertThatCode(() -> client.identify(null)).doesNotThrowAnyException();
     }
+
+    @Test
+    void errorReadOfARuleMatchedFlagSendsReasonErrorAndNoRuleId() throws Exception {
+        // A String flag whose matching rule serves it, read through boolVariation: the
+        // type mismatch makes the read an ERROR. The detail still carries the rule id,
+        // but that rule did not serve the traffic, so the event must not (#4268).
+        ObjectMapper mapper = new ObjectMapper();
+        String flags = mapper.writeValueAsString(Map.of(
+            "environment", "test",
+            "version", 1,
+            "flags", java.util.List.of(Map.of(
+                "key", "str-flag",
+                "version", 1,
+                "type", "String",
+                "enabled", true,
+                "variations", java.util.List.of(
+                    Map.of("key", "a", "value", "alpha"),
+                    Map.of("key", "b", "value", "beta")
+                ),
+                "rules", java.util.List.of(Map.of(
+                    "id", "rule-1",
+                    "priority", 0,
+                    "conditionGroups", java.util.List.of(Map.of(
+                        "operator", "And",
+                        "conditions", java.util.List.of(Map.of(
+                            "attribute", "plan", "operator", "Equals",
+                            "values", java.util.List.of("pro"), "negate", false))
+                    )),
+                    "serve", Map.of("type", "Fixed", "variation", "a")
+                )),
+                "fallthrough", Map.of("type", "Fixed", "variation", "b"),
+                "offVariation", "b"
+            )),
+            "segments", java.util.List.of()
+        ));
+        server = new MockWebServer();
+        server.enqueue(new MockResponse.Builder()
+            .body(flags)
+            .addHeader("Content-Type", "application/json")
+            .build());
+        server.enqueue(new MockResponse.Builder().code(202).build());
+        server.start();
+
+        client = FeatureflipClient.builder("test-sdk-key")
+            .baseUrl(server.url("/").toString())
+            .streaming(false)
+            .pollInterval(Duration.ofHours(1))
+            .build();
+        client.waitForInitialization();
+
+        EvaluationContext ctx = EvaluationContext.builder("user-1").set("plan", "pro").build();
+        EvaluationDetail<Boolean> detail = client.boolVariationDetail("str-flag", ctx, false);
+        assertThat(detail.getReason()).isEqualTo(EvaluationReason.ERROR);
+        assertThat(detail.getRuleId()).isEqualTo("rule-1");
+        client.flush();
+
+        server.takeRequest(2, TimeUnit.SECONDS); // GET /v1/sdk/flags
+        RecordedRequest eventsRequest = server.takeRequest(2, TimeUnit.SECONDS);
+        assertThat(eventsRequest).isNotNull();
+        com.fasterxml.jackson.databind.JsonNode event =
+            mapper.readTree(eventsRequest.getBody().utf8()).get("events").get(0);
+        assertThat(event.get("reason").asText()).isEqualTo("error");
+        assertThat(event.has("ruleId")).isFalse();
+    }
 }
