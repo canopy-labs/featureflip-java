@@ -233,6 +233,45 @@
       "expectedMatch": true
     },
     {
+      "id": "c-bool-true-regex-lowercase",
+      "attribute": {
+        "type": "boolean",
+        "value": true
+      },
+      "operator": "MatchesRegex",
+      "values": [
+        "^true$"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
+      "id": "c-bool-true-regex-capitalised",
+      "attribute": {
+        "type": "boolean",
+        "value": true
+      },
+      "operator": "MatchesRegex",
+      "values": [
+        "^True$"
+      ],
+      "negate": false,
+      "expectedMatch": false
+    },
+    {
+      "id": "c-bool-false-regex-lowercase",
+      "attribute": {
+        "type": "boolean",
+        "value": false
+      },
+      "operator": "MatchesRegex",
+      "values": [
+        "^false$"
+      ],
+      "negate": false,
+      "expectedMatch": true
+    },
+    {
       "id": "c-regex-cs-match",
       "attribute": {
         "type": "string",
@@ -3007,6 +3046,352 @@
       }
     },
     {
+      "id": "f-bucket-custom-sticky-other-user",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "anonymous_id"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u2",
+        "attributes": {
+          "anonymous_id": "anon-7"
+        }
+      },
+      "expected": {
+        "variation": "b",
+        "value": "vb",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-bucket-custom-no-user-id",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "anonymous_id"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "attributes": {
+          "anonymous_id": "anon-7"
+        }
+      },
+      "expected": {
+        "variation": "b",
+        "value": "vb",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-bucket-custom-other-value",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "anonymous_id"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {
+          "anonymous_id": "anon-8"
+        }
+      },
+      "expected": {
+        "variation": "a",
+        "value": "va",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-unbucketable-custom-missing-at-100",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 100
+                  },
+                  {
+                    "key": "b",
+                    "weight": 0
+                  }
+                ],
+                "bucketBy": "anonymous_id"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-bucket-custom-account-id",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "accountId"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {
+          "accountId": "acct-42"
+        }
+      },
+      "expected": {
+        "variation": "b",
+        "value": "vb",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
       "id": "f-bucket-num-one-point-zero",
       "flagKey": "main",
       "flags": [
@@ -4871,6 +5256,143 @@
       }
     },
     {
+      "id": "f-unbucketable-custom-case-mismatch",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "anonymous_id"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {
+          "Anonymous_Id": "anon-7"
+        }
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-condition-attribute-case-mismatch",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "beta",
+              "value": "beta-value"
+            },
+            {
+              "key": "control",
+              "value": "control-value"
+            }
+          ],
+          "rules": [
+            {
+              "id": "rule-beta-users",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "plan",
+                      "operator": "Equals",
+                      "values": [
+                        "beta"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "beta"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "control"
+          },
+          "offVariation": "control",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u",
+        "attributes": {
+          "Plan": "beta"
+        }
+      },
+      "expected": {
+        "variation": "control",
+        "value": "control-value",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
       "id": "f-unbucketable-custom-empty",
       "flagKey": "main",
       "flags": [
@@ -5005,6 +5527,415 @@
         "value": "vc",
         "reason": {
           "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-unbucketable-custom-array",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "groups"
+              },
+              "segmentKey": null
+            },
+            {
+              "id": "r2",
+              "priority": 1,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Fixed",
+                "variation": "c"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "a"
+          },
+          "offVariation": "a",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {
+          "groups": [
+            "a",
+            "b"
+          ]
+        }
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r2"
+        }
+      }
+    },
+    {
+      "id": "f-unbucketable-custom-empty-array",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "groups"
+              },
+              "segmentKey": null
+            },
+            {
+              "id": "r2",
+              "priority": 1,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Fixed",
+                "variation": "c"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "a"
+          },
+          "offVariation": "a",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {
+          "groups": []
+        }
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r2"
+        }
+      }
+    },
+    {
+      "id": "f-unbucketable-custom-object",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "company"
+              },
+              "segmentKey": null
+            },
+            {
+              "id": "r2",
+              "priority": 1,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Fixed",
+                "variation": "c"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "a"
+          },
+          "offVariation": "a",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {
+          "company": {
+            "id": "acme",
+            "tier": "pro"
+          }
+        }
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r2"
+        }
+      }
+    },
+    {
+      "id": "f-unbucketable-custom-empty-object",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "company"
+              },
+              "segmentKey": null
+            },
+            {
+              "id": "r2",
+              "priority": 1,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Fixed",
+                "variation": "c"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "a"
+          },
+          "offVariation": "a",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {
+          "company": {}
+        }
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r2"
+        }
+      }
+    },
+    {
+      "id": "f-unbucketable-user-id-array",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ]
+              },
+              "segmentKey": null
+            },
+            {
+              "id": "r2",
+              "priority": 1,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Fixed",
+                "variation": "c"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "a"
+          },
+          "offVariation": "a",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "user_id": [
+          "a",
+          "b"
+        ],
+        "plan": "pro"
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r2"
         }
       }
     },
@@ -5307,6 +6238,1015 @@
       "expected": {
         "variation": "on",
         "value": true,
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-wire-userId-cond-user_id",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "user_id",
+                      "operator": "Equals",
+                      "values": [
+                        "u1"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "a"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "userId": "u1"
+      },
+      "expected": {
+        "variation": "a",
+        "value": "va",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-wire-user_id-cond-userId",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "userId",
+                      "operator": "Equals",
+                      "values": [
+                        "u1"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "a"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "user_id": "u1"
+      },
+      "expected": {
+        "variation": "a",
+        "value": "va",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-wire-both-spellings-cond-userId",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "userId",
+                      "operator": "Equals",
+                      "values": [
+                        "a"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "a"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "user_id": "a",
+        "userId": "b"
+      },
+      "expected": {
+        "variation": "a",
+        "value": "va",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-wire-both-spellings-cond-user_id",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "user_id",
+                      "operator": "Equals",
+                      "values": [
+                        "b"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "a"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "user_id": "a",
+        "userId": "b"
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-wire-both-spellings-bucket-userId",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "userId"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "user_id": "a",
+        "userId": "b"
+      },
+      "expected": {
+        "variation": "b",
+        "value": "vb",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-wire-null-user_id",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "user_id",
+                      "operator": "Equals",
+                      "values": [
+                        "b"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "a"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "user_id": null,
+        "userId": "b"
+      },
+      "expected": {
+        "variation": "a",
+        "value": "va",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-wire-empty-user_id",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "userId",
+                      "operator": "Equals",
+                      "values": [
+                        "b"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "a"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "user_id": "",
+        "userId": "b"
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-wire-default-bucket",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ]
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "userId": "u1"
+      },
+      "expected": {
+        "variation": "a",
+        "value": "va",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-identity-casing-UserId",
+      "requires": [
+        "exactCaseIdentity"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "UserId",
+                      "operator": "Equals",
+                      "values": [
+                        "u1"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "a"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-wire-neither-cond-user_id",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "user_id",
+                      "operator": "Equals",
+                      "values": [
+                        "u1"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "a"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "plan": "pro"
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-wire-both-spellings-bucket-user_id",
+      "requires": [
+        "mapContext"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "user_id"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "wireContext": {
+        "user_id": "a",
+        "userId": "b"
+      },
+      "expected": {
+        "variation": "b",
+        "value": "vb",
+        "reason": {
+          "kind": "RuleMatch",
+          "ruleId": "r1"
+        }
+      }
+    },
+    {
+      "id": "f-identity-casing-USER_ID",
+      "requires": [
+        "exactCaseIdentity"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [
+                {
+                  "operator": "And",
+                  "conditions": [
+                    {
+                      "attribute": "USER_ID",
+                      "operator": "Equals",
+                      "values": [
+                        "u1"
+                      ],
+                      "negate": false
+                    }
+                  ]
+                }
+              ],
+              "serve": {
+                "type": "Fixed",
+                "variation": "a"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-identity-casing-bucket-USER_ID",
+      "requires": [
+        "exactCaseIdentity"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "USER_ID"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-identity-casing-bucket-UserId",
+      "requires": [
+        "exactCaseIdentity"
+      ],
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [
+            {
+              "id": "r1",
+              "priority": 0,
+              "conditionGroups": [],
+              "serve": {
+                "type": "Rollout",
+                "salt": "s",
+                "variations": [
+                  {
+                    "key": "a",
+                    "weight": 50
+                  },
+                  {
+                    "key": "b",
+                    "weight": 50
+                  }
+                ],
+                "bucketBy": "UserId"
+              },
+              "segmentKey": null
+            }
+          ],
+          "fallthrough": {
+            "type": "Fixed",
+            "variation": "c"
+          },
+          "offVariation": "c",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "u1",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
         "reason": {
           "kind": "Fallthrough"
         }

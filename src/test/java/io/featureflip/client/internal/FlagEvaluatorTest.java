@@ -791,47 +791,21 @@ class FlagEvaluatorTest {
     }
 
     @Test
-    void defaultBucketByUsesCustomUserIdAttribute() {
-        // When user sets "userId" as a custom attribute (different from builder userId),
-        // the default bucketBy should use the custom attribute value, not the builder userId.
-        // This matches JS/Python/Go/PHP/Ruby SDK behavior.
+    void defaultBucketByIsUser_idNotUserId() {
+        // No typed user id, so getAttribute can't resolve the identity and the bucket lookup
+        // falls to the exact-key attribute bag. Only a default of "user_id" finds this
+        // attribute (#4518); a default of "userId" would skip the rollout (null).
+        WeightedVariation only = new WeightedVariation();
+        only.setKey("on");
+        only.setWeight(100);
+        ServeConfig rollout = new ServeConfig();
+        rollout.setType(ServeType.ROLLOUT);
+        rollout.setSalt("test-salt");
+        rollout.setVariations(List.of(only));
 
-        // Verify the two values produce different buckets (so the test is meaningful)
-        int bucketCustom = evaluator.calculateBucket("test-salt", "custom-user");
-        int bucketBuilder = evaluator.calculateBucket("test-salt", "builder-user");
-        assertThat(bucketCustom).isNotEqualTo(bucketBuilder);
+        EvaluationContext ctx = EvaluationContext.builder().set("user_id", "x").build();
 
-        // Use a weight split that places them in different variations
-        int boundary = Math.max(bucketCustom, bucketBuilder);
-        WeightedVariation v1 = new WeightedVariation();
-        v1.setKey("control");
-        v1.setWeight(boundary);
-        WeightedVariation v2 = new WeightedVariation();
-        v2.setKey("treatment");
-        v2.setWeight(100 - boundary);
-
-        ServeConfig rolloutDefault = new ServeConfig();
-        rolloutDefault.setType(ServeType.ROLLOUT);
-        // No bucketBy set — should default to "userId"
-        rolloutDefault.setSalt("test-salt");
-        rolloutDefault.setVariations(List.of(v1, v2));
-
-        ServeConfig rolloutExplicit = new ServeConfig();
-        rolloutExplicit.setType(ServeType.ROLLOUT);
-        rolloutExplicit.setBucketBy("userId");
-        rolloutExplicit.setSalt("test-salt");
-        rolloutExplicit.setVariations(List.of(v1, v2));
-
-        // Custom attribute "userId" differs from builder userId
-        EvaluationContext ctx = EvaluationContext.builder("builder-user")
-                .set("userId", "custom-user")
-                .build();
-
-        String resultDefault = evaluator.resolveServeConfig(rolloutDefault, ctx);
-        String resultExplicit = evaluator.resolveServeConfig(rolloutExplicit, ctx);
-
-        // Default should behave same as explicit "userId" — both use custom attribute
-        assertThat(resultDefault).isEqualTo(resultExplicit);
+        assertThat(evaluator.resolveServeConfig(rollout, ctx)).isEqualTo("on");
     }
 
     private static ServeConfig thinControlRollout(String bucketBy) {

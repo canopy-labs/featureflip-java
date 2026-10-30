@@ -33,12 +33,25 @@ class EvaluationContextTest {
     }
 
     @Test
-    void getAttributeIsCaseInsensitive() {
+    void getAttributeIsCaseSensitive() {
+        // Exact key match, like the engine and every other SDK (#4527).
         EvaluationContext ctx = EvaluationContext.builder("user-1")
             .set("Country", "US")
             .build();
-        assertThat(ctx.getAttribute("country")).isEqualTo("US");
-        assertThat(ctx.getAttribute("COUNTRY")).isEqualTo("US");
+        assertThat(ctx.getAttribute("Country")).isEqualTo("US");
+        assertThat(ctx.getAttribute("country")).isNull();
+        assertThat(ctx.getAttribute("COUNTRY")).isNull();
+        assertThat(ctx.copy().getAttribute("country")).isNull();
+    }
+
+    @Test
+    void attributesDifferingOnlyInCaseAreDistinct() {
+        EvaluationContext ctx = EvaluationContext.builder("user-1")
+            .set("plan", "free")
+            .set("Plan", "pro")
+            .build();
+        assertThat(ctx.getAttribute("plan")).isEqualTo("free");
+        assertThat(ctx.getAttribute("Plan")).isEqualTo("pro");
     }
 
     @Test

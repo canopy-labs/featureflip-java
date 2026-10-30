@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.14.0 — 2026-10-30
+
+### Fixed
+
+- A rollout whose Bucket by value is an `Iterable`, `Map` or array (empty or not) can't be bucketed, so the rule is skipped like one with no value. It used to hash `toString()`, which put the context in a different bucket than the evaluation engine and the other SDKs. (#4572)
+
+### Changed
+
+- A rollout with no Bucket by now defaults to `user_id`, the canonical user-identifier spelling, instead of `userId`. `userId` is still accepted, and `EvaluationContext.builder(userId)` is unchanged. A context with no typed user id whose attribute bag carries the identifier under `userId` is no longer bucketed by a rollout that names no Bucket by; set the typed user id or use `user_id`. (#4518)
+
 ## 2.13.0 — 2026-10-26
 
 ### Added

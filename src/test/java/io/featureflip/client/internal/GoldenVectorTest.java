@@ -288,8 +288,18 @@ class GoldenVectorTest {
         JsonNode root = loadFixture();
 
         List<DynamicTest> tests = new ArrayList<>();
+        int skipped = 0;
+        boolean sawCasing = false;
         for (JsonNode v : root.get("flagVectors")) {
             String id = v.get("id").asText();
+            // mapContext: java takes a typed context, so the spelling a caller used for the
+            // identity is not observable and a runner mapping user_id ?? userId into it would
+            // be testing its own mapping. exactCaseIdentity is supported (#4535).
+            if (requiresUnsupported(v)) {
+                skipped++;
+                continue;
+            }
+            sawCasing |= id.equals("f-identity-casing-UserId");
             String flagKey = v.get("flagKey").asText();
             JsonNode flagsNode = v.get("flags");
             JsonNode segmentsNode = v.get("segments");
@@ -375,7 +385,28 @@ class GoldenVectorTest {
                 }
             }));
         }
+        // A silent skip-everything must not pass. Only the 11 wireContext (mapContext)
+        // vectors are skipped; the 61 typed vectors and exactCaseIdentity all run.
+        assertThat(skipped).as("skipped flag vectors (requires mapContext)").isEqualTo(11);
+        assertThat(sawCasing).as("f-identity-casing-UserId must execute: java matches identity case-sensitively").isTrue();
+        assertThat(tests.size()).as("executed flag vectors").isGreaterThanOrEqualTo(61);
         return tests;
+    }
+
+    private static final java.util.Set<String> SUPPORTED_CAPABILITIES =
+        java.util.Set.of("exactCaseIdentity");
+
+    private static boolean requiresUnsupported(JsonNode v) {
+        JsonNode requires = v.get("requires");
+        if (requires == null) {
+            return false;
+        }
+        for (JsonNode token : requires) {
+            if (!SUPPORTED_CAPABILITIES.contains(token.asText())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // -----------------------------------------------------------------------
@@ -408,10 +439,20 @@ class GoldenVectorTest {
     /**
      * Converts a {@link JsonNode} from the context attributes map to a plain Java
      * object. JSON null → null, booleans → {@link Boolean}, integral numbers → {@link Long}, other numbers → {@link Double},
-     * everything else → {@link String}.
+     * arrays → {@link java.util.List}, objects → {@link java.util.Map} (#4572), everything else → {@link String}.
      */
     private Object jsonNodeToObject(JsonNode node) {
         if (node.isNull()) return null;
+        if (node.isArray()) {
+            java.util.List<Object> list = new java.util.ArrayList<>();
+            for (JsonNode element : node) list.add(jsonNodeToObject(element));
+            return list;
+        }
+        if (node.isObject()) {
+            java.util.Map<String, Object> map = new java.util.LinkedHashMap<>();
+            for (Map.Entry<String, JsonNode> e : node.properties()) map.put(e.getKey(), jsonNodeToObject(e.getValue()));
+            return map;
+        }
         if (node.isBoolean()) return node.asBoolean();
         // Integral JSON numbers keep their integral spelling ("0", not "0.0"), as the engine
         // stringifies them for bucketing.

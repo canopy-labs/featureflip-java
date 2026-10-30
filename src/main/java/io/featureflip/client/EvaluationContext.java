@@ -70,9 +70,6 @@ public final class EvaluationContext {
      * spirit to the other SDKs, where the context is a mutable map.
      */
     EvaluationContext copy() {
-        // TreeMap's SortedMap constructor is selected here (most specific
-        // overload), which preserves the case-insensitive comparator; the
-        // Map overload would silently fall back to natural ordering.
         return new EvaluationContext(userId, new TreeMap<>(attributes));
     }
 
@@ -118,7 +115,9 @@ public final class EvaluationContext {
 
     public static final class Builder {
         private final String userId;
-        private final TreeMap<String, Object> attributes = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+        // Natural ordering, so keys are matched exactly, like the engine and every other
+        // SDK: a condition on "plan" does not read an attribute set as "Plan" (#4527).
+        private final TreeMap<String, Object> attributes = new TreeMap<>();
 
         private Builder(String userId) {
             this.userId = userId;

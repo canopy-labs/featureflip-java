@@ -88,6 +88,19 @@ class CanonicalNumberTest {
         assertThat(FlagEvaluator.bucketValueOf(null)).isEqualTo("");
     }
 
+    // #4572: a non-scalar has no spelling every SDK shares, so it can't be bucketed.
+    @Test
+    void bucketValueOfNonScalarIsUnbucketable() {
+        assertThat(FlagEvaluator.bucketValueOf(List.of("a", "b"))).isEqualTo("");
+        assertThat(FlagEvaluator.bucketValueOf(Collections.emptyList())).isEqualTo("");
+        assertThat(FlagEvaluator.bucketValueOf(java.util.Map.of("id", "acme"))).isEqualTo("");
+        assertThat(FlagEvaluator.bucketValueOf(Collections.emptyMap())).isEqualTo("");
+        assertThat(FlagEvaluator.bucketValueOf(new String[] {"a"})).isEqualTo("");
+        assertThat(FlagEvaluator.bucketValueOf(new int[] {1})).isEqualTo("");
+        assertThat(FlagEvaluator.bucketValueOf(
+            new com.fasterxml.jackson.databind.ObjectMapper().createArrayNode().add("a"))).isEqualTo("");
+    }
+
     @Test
     void userIdAttributeBucketsOnlyOnTheBucketPath() {
         EvaluationContext ctx = EvaluationContext.builder().set("user_id", 0).build();

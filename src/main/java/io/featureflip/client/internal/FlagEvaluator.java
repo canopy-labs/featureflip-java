@@ -617,7 +617,7 @@ public final class FlagEvaluator {
     }
 
     private static String bucketByOf(ServeConfig serve) {
-        return serve.getBucketBy() != null ? serve.getBucketBy() : "userId";
+        return serve.getBucketBy() != null ? serve.getBucketBy() : "user_id";
     }
 
     /**
@@ -664,10 +664,13 @@ public final class FlagEvaluator {
     /**
      * The text a bucket-by value hashes as, shared with the Evaluation API (#4236): a Boolean
      * is "true"/"false" (JSON spelling), a floating type uses the canonical number spelling, integers and
-     * strings are unchanged. Bucket path only; conditions stringify separately.
+     * strings are unchanged. An Iterable, Map or array (a JSON array or object, empty or not) is "",
+     * the can't-bucket value, so the rollout is skipped as for a missing attribute (#4572). Bucket
+     * path only; conditions stringify separately.
      */
     static String bucketValueOf(Object value) {
         if (value == null) return "";
+        if (value instanceof Iterable || value instanceof Map || value.getClass().isArray()) return "";
         if (value instanceof Boolean) return (Boolean) value ? "true" : "false";
         if (value instanceof Double) return CanonicalNumber.format((double) (Double) value);
         if (value instanceof Float) return CanonicalNumber.format((float) (Float) value);
