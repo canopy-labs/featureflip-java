@@ -38,6 +38,7 @@ public final class SseDataSource {
     private final Runnable onInitialized;
     private final Runnable onFallbackToPolling;
     private final Runnable onStreamRecovered;
+    private final Runnable onPing;
     private final ScheduledExecutorService executor;
     private final AtomicReference<EventSource> eventSourceRef = new AtomicReference<>();
     private final AtomicInteger consecutiveFailures = new AtomicInteger(0);
@@ -60,6 +61,15 @@ public final class SseDataSource {
                          ScheduledExecutorService executor,
                          Runnable onInitialized, Runnable onFallbackToPolling,
                          Runnable onStreamRecovered) {
+        this(httpClient, store, executor, onInitialized, onFallbackToPolling, onStreamRecovered, () -> { });
+    }
+
+    /** {@code onPing} runs on every stream heartbeat; the snapshot store uses it to refresh. */
+    public SseDataSource(FlagHttpClient httpClient, FlagStore store,
+                         ScheduledExecutorService executor,
+                         Runnable onInitialized, Runnable onFallbackToPolling,
+                         Runnable onStreamRecovered, Runnable onPing) {
+        this.onPing = onPing;
         this.httpClient = httpClient;
         this.store = store;
         this.objectMapper = httpClient.objectMapper;
@@ -206,6 +216,7 @@ public final class SseDataSource {
                     break;
                 case "ping":
                     log.debug("SSE ping received");
+                    onPing.run();
                     break;
                 default:
                     log.debug("Unknown SSE event type: {}", type);

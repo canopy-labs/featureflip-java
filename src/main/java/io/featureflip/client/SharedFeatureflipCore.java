@@ -9,6 +9,8 @@ import io.featureflip.client.internal.FlagEvaluator;
 import io.featureflip.client.internal.FlagHttpClient;
 import io.featureflip.client.internal.FlagStore;
 import io.featureflip.client.internal.PollingDataSource;
+import io.featureflip.client.internal.SnapshotCodec;
+import io.featureflip.client.internal.SnapshotPersister;
 import io.featureflip.client.internal.SseDataSource;
 import io.featureflip.client.internal.model.FlagConfiguration;
 import io.featureflip.client.internal.model.SdkEvent;
@@ -23,7 +25,13 @@ import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Callable;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeoutException;
+import java.util.function.Consumer;
+import java.util.function.LongSupplier;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -79,6 +87,24 @@ final class SharedFeatureflipCore {
     private final AtomicBoolean initialized = new AtomicBoolean(false);
     private final AtomicReference<PollingDataSource> fallbackPoller = new AtomicReference<>();
     private ScheduledFuture<?> flushTask;
+
+    /** Where the flag data came from; see {@link #startupInfo()}. Written by init and the live-apply observer. */
+    private volatile StartupInfo startup = StartupInfo.live();
+    private final SnapshotStore snapshotStore;
+    private final String keyHash;
+    private final SnapshotPersister persister;
+
+    /**
+     * Test seams for the production constructor: stub the data sources, the clocks and the
+     * writer thread so the snapshot paths can be driven deterministically.
+     */
+    static final class Testing {
+        boolean startDataSources = true;
+        LongSupplier wallMillis = System::currentTimeMillis;
+        LongSupplier monotonicNanos = System::nanoTime;
+        Consumer<Runnable> writerSpawner;
+        Consumer<String> snapshotWarn;
+    }
 
     /**
      * Monotonic deadline — a {@link System#nanoTime()} reading — before which the
@@ -148,6 +174,9 @@ final class SharedFeatureflipCore {
         this.eventProcessor = new EventProcessor(this.config.getFlushBatchSize());
         this.testValues = null;
         this.inspectors = config.getInspectors();
+        this.snapshotStore = null;
+        this.keyHash = null;
+        this.persister = null;
 
         this.httpClient = null;
         this.sseDataSource = null;
@@ -166,6 +195,9 @@ final class SharedFeatureflipCore {
         this.eventProcessor = null;
         this.testValues = Map.copyOf(testValues);
         this.inspectors = Collections.emptyList();
+        this.snapshotStore = null;
+        this.keyHash = null;
+        this.persister = null;
 
         this.httpClient = null;
         this.sseDataSource = null;
@@ -178,6 +210,10 @@ final class SharedFeatureflipCore {
 
     /** Production constructor. Package-private so only FeatureflipClient can call it. */
     SharedFeatureflipCore(String sdkKey, FeatureFlagConfig config) {
+        this(sdkKey, config, new Testing());
+    }
+
+    SharedFeatureflipCore(String sdkKey, FeatureFlagConfig config, Testing testing) {
         if (sdkKey == null || sdkKey.isBlank()) {
             throw new IllegalArgumentException("sdkKey must not be null or blank");
         }
@@ -200,15 +236,47 @@ final class SharedFeatureflipCore {
             return t;
         });
 
+        // Nothing is served yet. The first live apply (or a snapshot load) says otherwise.
+        this.startup = StartupInfo.none();
+        this.snapshotStore = config.getSnapshotStore();
+        if (snapshotStore != null) {
+            this.keyHash = SnapshotCodec.computeKeyHash(config.getBaseUrl(), sdkKey);
+            this.persister = new SnapshotPersister(snapshotStore, keyHash,
+                () -> SnapshotCodec.serializeState(store),
+                () -> startup.getSource() == StartupInfo.Source.LIVE,
+                testing.wallMillis, testing.monotonicNanos, testing.writerSpawner, testing.snapshotWarn);
+        } else {
+            this.keyHash = null;
+            this.persister = null;
+        }
+        // Installed before the initial fetch so a healthy start writes its first snapshot.
+        // A snapshot load goes through loadSnapshot and never reaches this observer.
+        store.setObserver(new FlagStore.ApplyObserver() {
+            @Override
+            public void onFullApply() {
+                startup = StartupInfo.live();
+                if (persister != null) persister.persistFull();
+            }
+
+            @Override
+            public void onDelta() {
+                if (persister != null) persister.persistDelta();
+            }
+        });
+
         // Initial flag fetch
-        try {
-            var response = httpClient.fetchFlags();
-            store.replace(response.getFlags(), response.getSegments());
-            initialized.set(true);
-            initLatch.countDown();
-            log.debug("Initialized with {} flags", response.getFlags().size());
-        } catch (Exception e) {
-            log.warn("Initial flag fetch failed: {}", e.getMessage());
+        if (snapshotStore == null) {
+            try {
+                var response = httpClient.fetchFlags();
+                store.replace(response.getFlags(), response.getSegments());
+                initialized.set(true);
+                initLatch.countDown();
+                log.debug("Initialized with {} flags", response.getFlags().size());
+            } catch (Exception e) {
+                log.warn("Initial flag fetch failed: {}", e.getMessage());
+            }
+        } else {
+            initializeWithSnapshotFallback(testing);
         }
 
         // Start data source
@@ -218,9 +286,15 @@ final class SharedFeatureflipCore {
             }
         };
 
+        if (!testing.startDataSources) {
+            this.sseDataSource = null;
+            this.pollingDataSource = null;
+            return;
+        }
+
         if (config.isStreaming()) {
             this.sseDataSource = new SseDataSource(httpClient, store, executor,
-                initCallback, this::startPolling, this::stopFallbackPolling);
+                initCallback, this::startPolling, this::stopFallbackPolling, this::onStreamPing);
             this.pollingDataSource = null;
             executor.execute(() -> sseDataSource.start());
         } else {
@@ -236,6 +310,137 @@ final class SharedFeatureflipCore {
             config.getFlushInterval().toMillis(),
             config.getFlushInterval().toMillis(),
             TimeUnit.MILLISECONDS);
+    }
+
+    // -------------------------------------------------------------------------
+    // Snapshot store
+    // -------------------------------------------------------------------------
+
+    /** Where the flag data came from: live, a stored snapshot, or nowhere yet. */
+    StartupInfo startupInfo() {
+        return startup;
+    }
+
+    /** The stream heartbeat: while live, refresh the stored {@code fetchedAt} (throttled). */
+    void onStreamPing() {
+        if (persister != null) persister.onPing();
+    }
+
+    /** Test seam: the store the data sources write through. */
+    FlagStore getStoreForTesting() { return store; }
+
+    /**
+     * Initial fetch for a client with a snapshot store. The fetch is bounded by the init
+     * timeout (a hung connection must not hold init past it). On any failure the store is
+     * read once, also bounded by the init timeout, so worst-case init is twice the timeout.
+     * Either way the client counts as initialized: with no usable snapshot it serves
+     * defaults and the data source started afterwards keeps trying.
+     */
+    private void initializeWithSnapshotFallback(Testing testing) {
+        long timeoutMs = config.getInitTimeout().toMillis();
+        try {
+            var response = callBounded(httpClient::fetchFlags, timeoutMs, "featureflip-init-fetch");
+            store.replace(response.getFlags(), response.getSegments());
+            log.debug("Initialized with {} flags", response.getFlags().size());
+        } catch (Exception e) {
+            String cause = describeInitFailure(e, timeoutMs);
+            loadSnapshotFallback(cause, timeoutMs, testing);
+        }
+        initialized.set(true);
+        initLatch.countDown();
+    }
+
+    private static String describeInitFailure(Exception e, long timeoutMs) {
+        if (e instanceof TimeoutException) {
+            return "timed out after " + timeoutMs + "ms";
+        }
+        String message = e.getMessage();
+        return message != null && !message.isEmpty() ? message : e.getClass().getSimpleName();
+    }
+
+    /** Runs {@code task} on a daemon thread and waits at most {@code timeoutMs} for it. */
+    private static <T> T callBounded(Callable<T> task, long timeoutMs, String threadName) throws Exception {
+        CompletableFuture<T> result = new CompletableFuture<>();
+        Thread thread = new Thread(() -> {
+            try {
+                result.complete(task.call());
+            } catch (Throwable t) {
+                result.completeExceptionally(t);
+            }
+        }, threadName);
+        thread.setDaemon(true);
+        thread.start();
+        try {
+            return result.get(timeoutMs, TimeUnit.MILLISECONDS);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause();
+            if (cause instanceof Exception) throw (Exception) cause;
+            throw e;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw e;
+        }
+    }
+
+    /**
+     * Serves the stored snapshot after a failed initial fetch. Never throws. Applied
+     * without persisting, so loading it does not refresh its own {@code fetchedAt}. Every
+     * check and every reason is decided here (see {@link SnapshotCodec#decode}).
+     */
+    private void loadSnapshotFallback(String cause, long timeoutMs, Testing testing) {
+        // Any start that is not live treats the first live apply as a silent baseline for
+        // listeners, except a snapshot start (set below), where the diff is the news.
+        startup = StartupInfo.none();
+        try {
+            String text;
+            try {
+                text = callBounded(snapshotStore::get, timeoutMs, "featureflip-snapshot-read");
+            } catch (TimeoutException e) {
+                log.warn("Initial flag fetch failed ({}) and the snapshot store read timed out after {}ms; "
+                    + "serving defaults", cause, timeoutMs);
+                store.suppressNextFullApplyNotification();
+                return;
+            } catch (Exception e) {
+                log.warn("Initial flag fetch failed ({}) and the snapshot store read failed: {}; "
+                    + "serving defaults", cause, e.toString());
+                store.suppressNextFullApplyNotification();
+                return;
+            }
+            if (text == null) {
+                log.warn("Initial flag fetch failed ({}); no snapshot stored; serving defaults", cause);
+                store.suppressNextFullApplyNotification();
+                return; // a plain miss: no reason
+            }
+            long now = testing.wallMillis.getAsLong();
+            SnapshotCodec.Decoded decoded;
+            try {
+                decoded = SnapshotCodec.decode(text, keyHash, now, httpClient.getObjectMapper());
+            } catch (SnapshotCodec.SnapshotInvalidException e) {
+                rejectSnapshot(cause, StartupInfo.REASON_INVALID, e.getWhy(), null);
+                return;
+            }
+            long ageMs = Math.max(0L, now - decoded.getFetchedAtMs());
+            long ageSeconds = ageMs / 1000L;
+            double limit = config.getMaxSnapshotAgeSeconds();
+            if (ageMs > limit * 1000d) {
+                rejectSnapshot(cause, StartupInfo.REASON_EXPIRED, ageSeconds + "s old, limit " + limit + "s",
+                    ageSeconds);
+                return;
+            }
+            store.loadSnapshot(decoded.getFlags(), decoded.getSegments());
+            startup = new StartupInfo(StartupInfo.Source.SNAPSHOT, StartupInfo.REASON_SNAPSHOT, ageSeconds);
+            log.warn("Initial flag fetch failed ({}); serving persisted snapshot ({}s old)", cause, ageSeconds);
+        } catch (RuntimeException e) {
+            log.warn("Snapshot load failed: {}", e.toString());
+            store.suppressNextFullApplyNotification();
+        }
+    }
+
+    private void rejectSnapshot(String cause, String reason, String why, Long ageSeconds) {
+        startup = new StartupInfo(StartupInfo.Source.NONE, reason, ageSeconds);
+        store.suppressNextFullApplyNotification();
+        log.warn("Initial flag fetch failed ({}); ignoring persisted snapshot ({}: {}); serving defaults",
+            cause, reason, why);
     }
 
     // -------------------------------------------------------------------------
@@ -896,6 +1101,9 @@ final class SharedFeatureflipCore {
             // only removes the entry if it still points at this core.
             owningMap.remove(owningKey, this);
         }
+
+        // A pending snapshot write is neither awaited nor cancelled, but no trailing one starts.
+        if (persister != null) persister.close();
 
         // Stop data sources
         if (sseDataSource != null) sseDataSource.close();

@@ -7,7 +7,7 @@ Java SDK for [Featureflip](https://featureflip.io) - evaluate feature flags loca
 ### Gradle
 
 ```groovy
-implementation 'io.featureflip:featureflip-java:2.14.0'
+implementation 'io.featureflip:featureflip-java:2.15.0'
 ```
 
 ### Maven
@@ -16,7 +16,7 @@ implementation 'io.featureflip:featureflip-java:2.14.0'
 <dependency>
     <groupId>io.featureflip</groupId>
     <artifactId>featureflip-java</artifactId>
-    <version>2.14.0</version>
+    <version>2.15.0</version>
 </dependency>
 ```
 
@@ -60,6 +60,8 @@ FeatureflipClient client = FeatureflipClient.get("your-sdk-key",
         .readTimeout(Duration.ofSeconds(10))               // HTTP read timeout
         .build());
 ```
+
+To let a new process start from its last-known configuration when the Evaluation API is unreachable, opt in with `.snapshotStore(new FileSnapshotStore("/var/lib/featureflip/snapshot.json"))` and optionally `.maxSnapshotAgeSeconds(...)` (default 86400). `client.startupInfo()` reports whether the data came from the API, a snapshot, or nowhere. Implement `SnapshotStore` (`get()` and `put(text)`) to keep the snapshot somewhere shared such as Redis. See the [Java SDK docs](https://featureflip.io/docs/sdks/java/#starting-during-an-outage).
 
 The SDK key can also be supplied through the `FEATUREFLIP_SDK_KEY` environment variable — pass `null` or a blank string to `get()` (or `builder()`) and it is read from there. A key passed explicitly always wins. If neither supplies one, `get()` throws `IllegalArgumentException` naming both routes.
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.15.0 — 2026-11-07
+
+### Added
+
+- Opt-in snapshot store: with `snapshotStore` set, the SDK saves the flag configuration as it receives it, and a later start that can't reach the Evaluation API loads the saved copy instead of serving defaults. A built-in `FileSnapshotStore` writes it to a local file, and you can implement the store interface to share one snapshot through something like Redis. A snapshot older than `maxSnapshotAgeSeconds` (24 hours by default) is ignored. `client.startupInfo()` reports whether the client started from the live API, a snapshot, or neither. Off unless you set it. (#4652)
+
 ## 2.14.0 — 2026-10-30
 
 ### Fixed

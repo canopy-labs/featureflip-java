@@ -17,6 +17,12 @@ public final class FeatureFlagConfig {
     private final List<EvaluationInspector> inspectors;
     private final String wrapperName;
     private final String wrapperVersion;
+    private final SnapshotStore snapshotStore;
+    private final double maxSnapshotAgeSeconds;
+    private final boolean maxSnapshotAgeExplicit;
+
+    /** Default {@link Builder#maxSnapshotAgeSeconds(double)}: 24 hours. */
+    public static final double DEFAULT_MAX_SNAPSHOT_AGE_SECONDS = 86400d;
 
     private FeatureFlagConfig(Builder builder) {
         this.baseUrl = builder.baseUrl.replaceAll("/+$", "");
@@ -30,6 +36,14 @@ public final class FeatureFlagConfig {
         this.inspectors = normalizeInspectors(builder.inspectors);
         this.wrapperName = builder.wrapperName;
         this.wrapperVersion = builder.wrapperVersion;
+        this.snapshotStore = builder.snapshotStore;
+        this.maxSnapshotAgeExplicit = builder.maxSnapshotAgeSeconds != null;
+        this.maxSnapshotAgeSeconds = maxSnapshotAgeExplicit
+            ? builder.maxSnapshotAgeSeconds : DEFAULT_MAX_SNAPSHOT_AGE_SECONDS;
+        if (!(this.maxSnapshotAgeSeconds > 0) || Double.isInfinite(this.maxSnapshotAgeSeconds)) {
+            throw new IllegalArgumentException(
+                "maxSnapshotAgeSeconds must be a positive finite number, got " + this.maxSnapshotAgeSeconds);
+        }
     }
 
     /**
@@ -67,6 +81,15 @@ public final class FeatureFlagConfig {
      */
     public List<EvaluationInspector> getInspectors() { return inspectors; }
 
+    /** The configured snapshot store, or {@code null}. See {@link Builder#snapshotStore}. */
+    public SnapshotStore getSnapshotStore() { return snapshotStore; }
+
+    /** The effective maximum snapshot age in seconds. See {@link Builder#maxSnapshotAgeSeconds}. */
+    public double getMaxSnapshotAgeSeconds() { return maxSnapshotAgeSeconds; }
+
+    /** Whether {@link Builder#maxSnapshotAgeSeconds} was called (as opposed to the default applying). */
+    boolean isMaxSnapshotAgeExplicit() { return maxSnapshotAgeExplicit; }
+
     /** Name of the library wrapping this SDK, or {@code null}. See {@link Builder#wrapper}. */
     public String getWrapperName() { return wrapperName; }
 
@@ -89,6 +112,8 @@ public final class FeatureFlagConfig {
         private List<EvaluationInspector> inspectors = Collections.emptyList();
         private String wrapperName;
         private String wrapperVersion;
+        private SnapshotStore snapshotStore;
+        private Double maxSnapshotAgeSeconds;
 
         public Builder baseUrl(String baseUrl) { this.baseUrl = baseUrl; return this; }
         public Builder connectTimeout(Duration connectTimeout) { this.connectTimeout = connectTimeout; return this; }
@@ -131,6 +156,27 @@ public final class FeatureFlagConfig {
             this.wrapperVersion = version;
             return this;
         }
+
+        /**
+         * Opts in to starting from a last-known configuration. After every full sync the
+         * client writes its state to {@code store}. If the initial fetch fails or times out,
+         * the client reads the store once and, when the stored snapshot is valid and young
+         * enough, starts from it. {@link FeatureflipClient#startupInfo()} says which
+         * happened. Use {@link FileSnapshotStore} or implement {@link SnapshotStore}.
+         *
+         * <p>A snapshot holds targeting rules, including customer attribute values, so
+         * nothing is written unless this is set. Honored on the first
+         * {@link FeatureflipClient#get(String, FeatureFlagConfig)} per SDK key. Passing
+         * {@code null} clears it.
+         */
+        public Builder snapshotStore(SnapshotStore store) { this.snapshotStore = store; return this; }
+
+        /**
+         * The oldest snapshot the client will start from, in seconds (default 86400). Must
+         * be positive and finite, otherwise {@link #build()} throws
+         * {@link IllegalArgumentException}. There is no "never expire" value.
+         */
+        public Builder maxSnapshotAgeSeconds(double seconds) { this.maxSnapshotAgeSeconds = seconds; return this; }
 
         public FeatureFlagConfig build() {
             return new FeatureFlagConfig(this);

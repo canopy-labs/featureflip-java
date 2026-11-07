@@ -204,11 +204,37 @@ public final class FeatureflipClient implements AutoCloseable {
             && a.getFlushBatchSize() == b.getFlushBatchSize()
             && java.util.Objects.equals(a.getInitTimeout(), b.getInitTimeout())
             && java.util.Objects.equals(a.getConnectTimeout(), b.getConnectTimeout())
-            && java.util.Objects.equals(a.getReadTimeout(), b.getReadTimeout());
+            && java.util.Objects.equals(a.getReadTimeout(), b.getReadTimeout())
+            && snapshotOptionsEqual(a, b);
+    }
+
+    /**
+     * The snapshot store is compared by identity and the max age by value, so a later
+     * {@code get()} that passes a different store or limit warns that it was ignored. The
+     * store is not behaviorally comparable, and the age is only compared when the later
+     * caller set it explicitly: an omitted option and the default are otherwise
+     * indistinguishable, and a wrapper that omits it must not trigger a spurious warning.
+     */
+    private static boolean snapshotOptionsEqual(FeatureFlagConfig existing, FeatureFlagConfig requested) {
+        if (requested.getSnapshotStore() != null && requested.getSnapshotStore() != existing.getSnapshotStore()) {
+            return false;
+        }
+        return !requested.isMaxSnapshotAgeExplicit()
+            || requested.getMaxSnapshotAgeSeconds() == existing.getMaxSnapshotAgeSeconds();
     }
 
     public void waitForInitialization() {
         core.waitForInitialization();
+    }
+
+    /**
+     * Where this client's flag data came from: {@link StartupInfo.Source#LIVE} after a
+     * successful fetch, {@link StartupInfo.Source#SNAPSHOT} when it started from its
+     * {@link SnapshotStore}, or {@link StartupInfo.Source#NONE} when it has no data yet.
+     * It moves to live on the first successful live sync after a snapshot or none start.
+     */
+    public StartupInfo startupInfo() {
+        return core.startupInfo();
     }
 
     public boolean isInitialized() {
@@ -408,6 +434,13 @@ public final class FeatureflipClient implements AutoCloseable {
         public Builder flushInterval(Duration interval) { configBuilder.flushInterval(interval); return this; }
         public Builder flushBatchSize(int size) { configBuilder.flushBatchSize(size); return this; }
         public Builder initTimeout(Duration timeout) { configBuilder.initTimeout(timeout); return this; }
+        /** @see FeatureFlagConfig.Builder#snapshotStore(SnapshotStore) */
+        public Builder snapshotStore(SnapshotStore store) { configBuilder.snapshotStore(store); return this; }
+        /** @see FeatureFlagConfig.Builder#maxSnapshotAgeSeconds(double) */
+        public Builder maxSnapshotAgeSeconds(double seconds) {
+            configBuilder.maxSnapshotAgeSeconds(seconds);
+            return this;
+        }
         /** @see FeatureFlagConfig.Builder#inspectors(java.util.List) */
         public Builder inspectors(java.util.List<EvaluationInspector> inspectors) {
             configBuilder.inspectors(inspectors);

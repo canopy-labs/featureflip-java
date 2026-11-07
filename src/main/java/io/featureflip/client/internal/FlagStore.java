@@ -41,6 +41,46 @@ public final class FlagStore {
      */
     private final CopyOnWriteArrayList<FlagUpdateListener> listeners = new CopyOnWriteArrayList<>();
 
+    /**
+     * Told after every applied change, separately from the user-facing listeners: it is
+     * how the core learns that a full live snapshot landed (so startup info can move to
+     * live and the snapshot store can be written) without each data source knowing.
+     */
+    public interface ApplyObserver {
+        /** A complete live configuration replaced the store (initial fetch, poll, sync, segment refetch). */
+        void onFullApply();
+
+        /** A single flag or segment was upserted or removed. */
+        void onDelta();
+    }
+
+    private volatile ApplyObserver observer;
+
+    /** When set, the next full apply is a silent baseline: it computes and fires no diff. */
+    private boolean baselinePending;
+
+    public void setObserver(ApplyObserver observer) {
+        this.observer = observer;
+    }
+
+    /**
+     * Makes the next {@link #replace} a silent baseline for listeners. Used after a start
+     * with no data at all: the first live snapshot is the baseline, not a change.
+     */
+    public void suppressNextFullApplyNotification() {
+        updateLock.lock();
+        try {
+            baselinePending = true;
+        } finally {
+            updateLock.unlock();
+        }
+    }
+
+    /** The current flags and segments as one consistent view. */
+    Snapshot current() {
+        return snapshot;
+    }
+
     public FlagConfiguration getFlag(String key) {
         return snapshot.flags.get(key);
     }
@@ -69,6 +109,19 @@ public final class FlagStore {
     }
 
     public void replace(List<FlagConfiguration> flags, List<Segment> segments) {
+        applyFull(flags, segments, true);
+    }
+
+    /**
+     * Applies a snapshot loaded from the snapshot store. Identical to {@link #replace}
+     * except the observer is not told, because a stored snapshot is not live data: it must
+     * neither be written back nor move startup info to live.
+     */
+    public void loadSnapshot(List<FlagConfiguration> flags, List<Segment> segments) {
+        applyFull(flags, segments, false);
+    }
+
+    private void applyFull(List<FlagConfiguration> flags, List<Segment> segments, boolean live) {
         // Treat null as empty: a `"flags": null` / `"segments": null` payload
         // deserializes the response collections to null (Jackson overrides the
         // default), and a null sync snapshot must clear the store rather than NPE.
@@ -85,13 +138,18 @@ public final class FlagStore {
             // Diffed INSIDE the lock, against the snapshot still in place. Reading
             // the previous state from outside and diffing after the write would lose
             // any change a concurrent writer landed in between, which under-reports.
-            changed = watched()
+            changed = watched() && !baselinePending
                 ? FlagUpdates.diffSnapshot(snapshot.flags, snapshot.segments, flagMap, segMap)
                 : Collections.emptyList();
+            baselinePending = false;
 
             snapshot = new Snapshot(Collections.unmodifiableMap(flagMap), Collections.unmodifiableMap(segMap));
         } finally {
             updateLock.unlock();
+        }
+        // Observer first: startup info must already read LIVE when a listener runs.
+        if (live) {
+            notifyObserver(true);
         }
         notifyListeners(changed);
     }
@@ -114,6 +172,7 @@ public final class FlagStore {
             updateLock.unlock();
         }
         notifyListeners(changed);
+        notifyObserver(false);
     }
 
     public void upsertSegment(Segment segment) {
@@ -130,6 +189,7 @@ public final class FlagStore {
             updateLock.unlock();
         }
         notifyListeners(changed);
+        notifyObserver(false);
     }
 
     public void removeFlag(String key) {
@@ -149,6 +209,7 @@ public final class FlagStore {
             updateLock.unlock();
         }
         notifyListeners(changed);
+        notifyObserver(false);
     }
 
     public void removeSegment(String key) {
@@ -165,6 +226,24 @@ public final class FlagStore {
             updateLock.unlock();
         }
         notifyListeners(changed);
+        notifyObserver(false);
+    }
+
+    private void notifyObserver(boolean full) {
+        ApplyObserver current = observer;
+        if (current == null) {
+            return;
+        }
+        try {
+            if (full) {
+                current.onFullApply();
+            } else {
+                current.onDelta();
+            }
+        } catch (RuntimeException e) {
+            // Never let snapshot bookkeeping fail a good apply.
+            log.warn("Flag store observer threw: {}", e.toString());
+        }
     }
 
     /**
@@ -208,7 +287,7 @@ public final class FlagStore {
         }
     }
 
-    private static final class Snapshot {
+    static final class Snapshot {
         final Map<String, FlagConfiguration> flags;
         final Map<String, Segment> segments;
 

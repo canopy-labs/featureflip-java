@@ -110,20 +110,7 @@ public final class FlagHttpClient {
     public FlagHttpClient(String sdkKey, FeatureFlagConfig config) {
         this.sdkKey = sdkKey;
         this.baseUrl = config.getBaseUrl();
-        this.objectMapper = new ObjectMapper()
-            .registerModule(new JavaTimeModule())
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-            // Enums must arrive as strings ("Boolean", "Fixed", "And"). Jackson would
-            // otherwise accept an integer and resolve it by ORDINAL, silently bypassing
-            // the @JsonProperty names on the constants — so a value inserted into the
-            // middle of the corresponding .NET enum would shift every later value here
-            // to the wrong one, with no exception and no log line. Nothing links the two
-            // declaration orders, so that drift would be invisible at both edit sites.
-            // Failing loudly turns a silent-wrong into a visible error (#2283; #2279 is
-            // the server bug that made integer enums reach SDKs at all).
-            .configure(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS, true)
-            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
-            .addHandler(UNKNOWN_ENUM_NAME_HANDLER);
+        this.objectMapper = newObjectMapper();
 
         // Built once. The SSE client is derived from this one with newBuilder(), so it
         // inherits the interceptor below and every request path carries the identity.
@@ -141,6 +128,28 @@ public final class FlagHttpClient {
                 return chain.proceed(request);
             })
             .build();
+    }
+
+    /**
+     * The mapper every wire payload is parsed with: the flags fetch, the SSE frames and a
+     * stored snapshot. One definition, so a persisted snapshot is validated by exactly the
+     * rules a live payload is.
+     */
+    public static ObjectMapper newObjectMapper() {
+        return new ObjectMapper()
+            .registerModule(new JavaTimeModule())
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
+            // Enums must arrive as strings ("Boolean", "Fixed", "And"). Jackson would
+            // otherwise accept an integer and resolve it by ORDINAL, silently bypassing
+            // the @JsonProperty names on the constants — so a value inserted into the
+            // middle of the corresponding .NET enum would shift every later value here
+            // to the wrong one, with no exception and no log line. Nothing links the two
+            // declaration orders, so that drift would be invisible at both edit sites.
+            // Failing loudly turns a silent-wrong into a visible error (#2283; #2279 is
+            // the server bug that made integer enums reach SDKs at all).
+            .configure(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS, true)
+            .configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false)
+            .addHandler(UNKNOWN_ENUM_NAME_HANDLER);
     }
 
     public GetFlagsResponse fetchFlags() throws IOException {
