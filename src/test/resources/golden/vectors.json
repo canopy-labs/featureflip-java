@@ -2840,6 +2840,175 @@
       }
     },
     {
+      "id": "f-fallthrough-rollout-bucketed-into-target",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Rollout",
+            "salt": "s",
+            "variations": [
+              {
+                "key": "a",
+                "weight": 30
+              },
+              {
+                "key": "c",
+                "weight": 70
+              }
+            ],
+            "variation": "c"
+          },
+          "offVariation": "b",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "user-1",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "a",
+        "value": "va",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-fallthrough-rollout-bucketed-into-default",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Rollout",
+            "salt": "s",
+            "variations": [
+              {
+                "key": "a",
+                "weight": 30
+              },
+              {
+                "key": "c",
+                "weight": 70
+              }
+            ],
+            "variation": "c"
+          },
+          "offVariation": "b",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "user-2",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
+      "id": "f-fallthrough-rollout-custom-bucket-by-missing",
+      "flagKey": "main",
+      "flags": [
+        {
+          "key": "main",
+          "version": 1,
+          "type": "String",
+          "enabled": true,
+          "variations": [
+            {
+              "key": "a",
+              "value": "va"
+            },
+            {
+              "key": "b",
+              "value": "vb"
+            },
+            {
+              "key": "c",
+              "value": "vc"
+            }
+          ],
+          "rules": [],
+          "fallthrough": {
+            "type": "Rollout",
+            "salt": "s",
+            "bucketBy": "account_id",
+            "variations": [
+              {
+                "key": "a",
+                "weight": 30
+              },
+              {
+                "key": "c",
+                "weight": 70
+              }
+            ],
+            "variation": "c"
+          },
+          "offVariation": "b",
+          "prerequisites": []
+        }
+      ],
+      "segments": [],
+      "context": {
+        "userId": "user-1",
+        "attributes": {}
+      },
+      "expected": {
+        "variation": "c",
+        "value": "vc",
+        "reason": {
+          "kind": "Fallthrough"
+        }
+      }
+    },
+    {
       "id": "f-bucket-alias-userId",
       "flagKey": "main",
       "flags": [

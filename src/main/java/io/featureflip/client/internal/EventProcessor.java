@@ -1,8 +1,6 @@
 package io.featureflip.client.internal;
 
 import io.featureflip.client.internal.model.SdkEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -21,7 +19,7 @@ import java.util.List;
  * lock cannot drift from the contents it is describing.
  */
 public final class EventProcessor {
-    private static final Logger log = LoggerFactory.getLogger(EventProcessor.class);
+    private static final RedactingLogger log = RedactingLogger.get(EventProcessor.class);
 
     /**
      * Upper bound on buffered events.

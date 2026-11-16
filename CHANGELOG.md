@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.15.1 — 2026-11-16
+
+### Security
+
+- The SDK key is now redacted from every log line the SDK emits, including error messages and exceptions from the HTTP stack. A key shorter than 20 characters is left alone. (#5167)
+
 ## 2.15.0 — 2026-11-07
 
 ### Added

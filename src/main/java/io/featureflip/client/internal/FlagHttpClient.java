@@ -15,8 +15,6 @@ import io.featureflip.client.internal.model.ServeType;
 import io.featureflip.client.internal.model.GetFlagsResponse;
 import io.featureflip.client.internal.model.SdkEvent;
 import okhttp3.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.Collections;
@@ -24,7 +22,7 @@ import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 public final class FlagHttpClient {
-    private static final Logger log = LoggerFactory.getLogger(FlagHttpClient.class);
+    private static final RedactingLogger log = RedactingLogger.get(FlagHttpClient.class);
 
     /**
      * Tolerates a {@link ConditionOperator} name this SDK build does not know, mapping it
@@ -109,6 +107,8 @@ public final class FlagHttpClient {
 
     public FlagHttpClient(String sdkKey, FeatureFlagConfig config) {
         this.sdkKey = sdkKey;
+        // Before anything can fail and log: every SDK log line redacts this key (#5167).
+        RedactingLogger.register(sdkKey);
         this.baseUrl = config.getBaseUrl();
         this.objectMapper = newObjectMapper();
 

@@ -1,8 +1,6 @@
 package io.featureflip.client.internal;
 
 import io.featureflip.client.FeatureFlagConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -14,7 +12,7 @@ import java.util.regex.Pattern;
  * Evaluation API can count SDK usage by name and version (#4140, contract in #4138).
  */
 public final class SdkIdentity {
-    private static final Logger log = LoggerFactory.getLogger(SdkIdentity.class);
+    private static final RedactingLogger log = RedactingLogger.get(SdkIdentity.class);
 
     public static final String NAME = "featureflip-java";
 

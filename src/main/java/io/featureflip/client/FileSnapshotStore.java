@@ -1,7 +1,6 @@
 package io.featureflip.client;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.featureflip.client.internal.RedactingLogger;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
@@ -43,7 +42,7 @@ import java.util.function.Consumer;
  * it is never read.
  */
 public final class FileSnapshotStore implements SnapshotStore {
-    private static final Logger log = LoggerFactory.getLogger(FileSnapshotStore.class);
+    private static final RedactingLogger log = RedactingLogger.get(FileSnapshotStore.class);
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final Set<PosixFilePermission> OWNER_ONLY = PosixFilePermissions.fromString("rw-------");
 

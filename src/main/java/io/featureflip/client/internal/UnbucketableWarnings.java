@@ -1,7 +1,5 @@
 package io.featureflip.client.internal;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -17,7 +15,7 @@ import java.util.function.Consumer;
 final class UnbucketableWarnings {
     static final int MAX_KEYS = 1000;
 
-    private static final Logger LOG = LoggerFactory.getLogger(FlagEvaluator.class);
+    private static final RedactingLogger LOG = RedactingLogger.get(FlagEvaluator.class);
     private static final UnbucketableWarnings SHARED = new UnbucketableWarnings(LOG::warn);
 
     private final Set<String> seen = ConcurrentHashMap.newKeySet();

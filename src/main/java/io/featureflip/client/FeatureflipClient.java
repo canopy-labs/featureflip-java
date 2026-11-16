@@ -1,7 +1,6 @@
 package io.featureflip.client;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.featureflip.client.internal.RedactingLogger;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -23,7 +22,7 @@ import java.util.function.Function;
  * available for unit tests that want a fixed-value stub client.
  */
 public final class FeatureflipClient implements AutoCloseable {
-    private static final Logger log = LoggerFactory.getLogger(FeatureflipClient.class);
+    private static final RedactingLogger log = RedactingLogger.get(FeatureflipClient.class);
 
     private static final String SDK_KEY_ENV_VAR = "FEATUREFLIP_SDK_KEY";
 

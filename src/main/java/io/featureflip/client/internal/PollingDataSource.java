@@ -1,14 +1,12 @@
 package io.featureflip.client.internal;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 public final class PollingDataSource {
-    private static final Logger log = LoggerFactory.getLogger(PollingDataSource.class);
+    private static final RedactingLogger log = RedactingLogger.get(PollingDataSource.class);
 
     private final FlagHttpClient httpClient;
     private final FlagStore store;

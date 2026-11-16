@@ -1,8 +1,6 @@
 package io.featureflip.client.internal;
 
 import io.featureflip.client.SnapshotStore;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.function.BooleanSupplier;
 import java.util.function.Consumer;
@@ -22,7 +20,7 @@ import java.util.function.LongSupplier;
  * Changed content is never throttled.
  */
 public final class SnapshotPersister {
-    private static final Logger log = LoggerFactory.getLogger(SnapshotPersister.class);
+    private static final RedactingLogger log = RedactingLogger.get(SnapshotPersister.class);
 
     /** While live, an unchanged state is rewritten at most this often. */
     public static final long REFRESH_INTERVAL_MS = 300_000L;

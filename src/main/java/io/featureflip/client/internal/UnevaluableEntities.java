@@ -8,8 +8,6 @@ import io.featureflip.client.internal.model.Segment;
 import io.featureflip.client.internal.model.ServeConfig;
 import io.featureflip.client.internal.model.ServeType;
 import io.featureflip.client.internal.model.TargetingRule;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -46,7 +44,7 @@ import java.util.List;
  * change purely additive.
  */
 final class UnevaluableEntities {
-    private static final Logger log = LoggerFactory.getLogger(UnevaluableEntities.class);
+    private static final RedactingLogger log = RedactingLogger.get(UnevaluableEntities.class);
 
     private UnevaluableEntities() {}
 

@@ -3,8 +3,6 @@ package io.featureflip.client.internal;
 import io.featureflip.client.FlagUpdateListener;
 import io.featureflip.client.internal.model.FlagConfiguration;
 import io.featureflip.client.internal.model.Segment;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -30,7 +28,7 @@ import java.util.concurrent.locks.ReentrantLock;
  * hears about an edit).
  */
 public final class FlagStore {
-    private static final Logger log = LoggerFactory.getLogger(FlagStore.class);
+    private static final RedactingLogger log = RedactingLogger.get(FlagStore.class);
 
     private volatile Snapshot snapshot = new Snapshot(Collections.emptyMap(), Collections.emptyMap());
     private final ReentrantLock updateLock = new ReentrantLock();

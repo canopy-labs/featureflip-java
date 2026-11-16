@@ -11,8 +11,6 @@ import okhttp3.Response;
 import okhttp3.sse.EventSource;
 import okhttp3.sse.EventSourceListener;
 import okhttp3.sse.EventSources;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -23,7 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 public final class SseDataSource {
-    private static final Logger log = LoggerFactory.getLogger(SseDataSource.class);
+    private static final RedactingLogger log = RedactingLogger.get(SseDataSource.class);
     static final int MAX_BACKOFF_SECONDS = 30;
     private static final int MAX_CONSECUTIVE_FAILURES = 5;
     // Liveness watchdog: a finite SSE read timeout well above the ~30s server

@@ -16,8 +16,7 @@ import io.featureflip.client.internal.model.FlagConfiguration;
 import io.featureflip.client.internal.model.SdkEvent;
 import io.featureflip.client.internal.model.SdkEventType;
 import io.featureflip.client.internal.model.Variation;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import io.featureflip.client.internal.RedactingLogger;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -51,7 +50,7 @@ import java.util.concurrent.atomic.AtomicReference;
  * {@link FeatureflipClient} (which wraps it in a handle) and the unit tests.
  */
 final class SharedFeatureflipCore {
-    private static final Logger log = LoggerFactory.getLogger(SharedFeatureflipCore.class);
+    private static final RedactingLogger log = RedactingLogger.get(SharedFeatureflipCore.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private final AtomicInteger refCount = new AtomicInteger(1);
