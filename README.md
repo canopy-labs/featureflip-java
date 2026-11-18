@@ -7,7 +7,7 @@ Java SDK for [Featureflip](https://featureflip.io) - evaluate feature flags loca
 ### Gradle
 
 ```groovy
-implementation 'io.featureflip:featureflip-java:2.15.1'
+implementation 'io.featureflip:featureflip-java:2.16.0'
 ```
 
 ### Maven
@@ -16,7 +16,7 @@ implementation 'io.featureflip:featureflip-java:2.15.1'
 <dependency>
     <groupId>io.featureflip</groupId>
     <artifactId>featureflip-java</artifactId>
-    <version>2.15.1</version>
+    <version>2.16.0</version>
 </dependency>
 ```
 
@@ -183,6 +183,17 @@ client.boolVariation("my-feature", context, false);     // true
 client.stringVariation("pricing-tier", context, "free"); // "pro"
 client.boolVariation("unknown", context, false);         // false (default)
 ```
+
+## Framework integrations
+
+Two optional artifacts, released at the same version as the SDK, wire the client into a framework. Both need Java 17 or later (Micronaut 5 itself needs Java 25), and neither is pulled in unless you add it.
+
+| Framework | Artifact |
+|-----------|----------|
+| Spring Boot 3 or 4 | `io.featureflip:featureflip-spring-boot-starter` |
+| Micronaut 4 or 5 | `io.featureflip:featureflip-micronaut` |
+
+Set `featureflip.sdk-key` (or `FEATUREFLIP_SDK_KEY`) and inject `FeatureflipClient`. Options such as `featureflip.streaming` and `featureflip.init-timeout` use the same names as the SDK's configuration.
 
 ## Features
 

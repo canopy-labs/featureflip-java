@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.16.0 — 2026-11-18
+
+### Added
+
+- `io.featureflip:featureflip-spring-boot-starter`: Spring Boot 3 auto-configuration. It registers a `FeatureflipClient` bean from the `featureflip.*` properties, and a `FeatureflipClient` bean of your own takes precedence. Needs Java 17.
+- `io.featureflip:featureflip-micronaut`: Micronaut 4 factory and `featureflip.*` configuration that provide a `FeatureflipClient` bean and close it when the context stops. The client is created eagerly at startup, so a missing key or invalid option fails `ApplicationContext.run`, and `featureflip.enabled=false` is honoured in any letter case. Needs Java 17.
+- Both ship from the same release tag as the SDK, at the same version, and depend on `featureflip-java` at that version. The SDK itself still targets Java 11.
+
 ## 2.15.1 — 2026-11-16
 
 ### Security
